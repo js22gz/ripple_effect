@@ -1,0 +1,125 @@
+{
+  "name": "Base",
+  "ripples": [
+    {
+      "id": 3,
+      "name": "Left",
+      "enabled": true,
+      "expanded": false,
+      "color": "#003c80",
+      "waves": [
+        {
+          "frequency": 2.8,
+          "amplitude": 90,
+          "rate": 0.05867892125194286
+        },
+        {
+          "frequency": 5.6,
+          "amplitude": 17,
+          "rate": 0.06380528229337148
+        },
+        {
+          "frequency": 9.3,
+          "amplitude": 6,
+          "rate": 0.08416412101614236
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Ripple 2",
+      "enabled": true,
+      "expanded": false,
+      "color": "#fb00ff",
+      "waves": [
+        {
+          "frequency": 2.8,
+          "amplitude": 47,
+          "rate": 0.05867892125194286
+        },
+        {
+          "frequency": 5.6,
+          "amplitude": 17,
+          "rate": 0.06380528229337148
+        },
+        {
+          "frequency": 9.3,
+          "amplitude": 55.5,
+          "rate": 0.08416412101614236
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Ripple 3",
+      "enabled": true,
+      "expanded": false,
+      "color": "#661d00",
+      "waves": [
+        {
+          "frequency": 2.8,
+          "amplitude": 41.5,
+          "rate": 0.05867892125194286
+        },
+        {
+          "frequency": 5.6,
+          "amplitude": 90,
+          "rate": 0.06380528229337148
+        },
+        {
+          "frequency": 9.3,
+          "amplitude": 6,
+          "rate": 0.08416412101614236
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Ripple 4",
+      "enabled": true,
+      "expanded": false,
+      "color": "#7affa8",
+      "waves": [
+        {
+          "frequency": 2.8,
+          "amplitude": 41.5,
+          "rate": 0.05867892125194286
+        },
+        {
+          "frequency": 5.6,
+          "amplitude": 90,
+          "rate": 0.06380528229337148
+        },
+        {
+          "frequency": 9.3,
+          "amplitude": 52,
+          "rate": 0.08416412101614236
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Ripple 5",
+      "enabled": true,
+      "expanded": true,
+      "color": "#d47aff",
+      "waves": [
+        {
+          "frequency": 2.8,
+          "amplitude": 90,
+          "rate": 0.05867892125194286
+        },
+        {
+          "frequency": 5.6,
+          "amplitude": 66.5,
+          "rate": 0.06380528229337148
+        },
+        {
+          "frequency": 9.3,
+          "amplitude": 52,
+          "rate": 0.08416412101614236
+        }
+      ]
+    }
+  ]
+}

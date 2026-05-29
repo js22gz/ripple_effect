@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ripple Effect</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000000;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    #controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(15, 15, 20, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 16px 18px;
+      color: #ddd;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 12px;
+      width: 260px;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      user-select: none;
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+
+    .ripple {
+      margin-bottom: 16px;
+      padding: 8px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+    }
+
+    .ripple-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .ripple-header h4 {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 600;
+      color: #aaa;
+      flex: 1;
+    }
+
+    .ripple-header input[type="checkbox"] {
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .ripple-header .expand-toggle,
+    .ripple-header .delete-btn {
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 13px;
+      line-height: 1;
+      padding: 2px 5px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+
+    .ripple-header .expand-toggle:hover,
+    .ripple-header .delete-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: #ddd;
+    }
+
+    .ripple-header .delete-btn:hover {
+      color: #ff6b6b;
+    }
+
+    .ripple-header input[type="color"] {
+      width: 26px;
+      height: 20px;
+      padding: 0;
+      border: 1px solid #444;
+      border-radius: 3px;
+      background: transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+
+
+    .ripple-controls {
+      margin-top: 4px;
+    }
+
+    .collection {
+      margin-bottom: 14px;
+      padding: 10px;
+      background: rgba(255,255,255,0.035);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .global-controls {
+      margin-bottom: 12px;
+    }
+
+    .global-controls .slider-control {
+      margin-bottom: 10px;
+    }
+
+    #add-ripple-btn:hover {
+      background: #3a3a44;
+      color: #fff;
+    }
+
+    .slider-control {
+      margin-bottom: 10px;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: #888;
+      margin-bottom: 3px;
+    }
+
+    .slider-label .label {
+      flex: 1;
+    }
+
+    .slider-label .slider-value {
+      font-variant-numeric: tabular-nums;
+      color: #ccc;
+      min-width: 38px;
+      text-align: right;
+      font-size: 10.5px;
+    }
+
+    .slider-control input[type="range"] {
+      width: 100%;
+      accent-color: #7ab8ff;
+      margin: 0;
+    }
+
+    .wave-group {
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="controls">
+    <h3>Globals</h3>
+    <div class="global-controls">
+      <div class="slider-control">
+        <div class="slider-label">
+          <span class="label">Shape Height</span>
+          <span class="slider-value" id="val-shapeHeight">520</span>
+        </div>
+        <input type="range" id="shapeHeight" min="200" max="900" step="10" value="520">
+      </div>
+
+      <div class="slider-control">
+        <div class="slider-label">
+          <span class="label">Base Width Top</span>
+          <span class="slider-value" id="val-baseWidthTop">48</span>
+        </div>
+        <input type="range" id="baseWidthTop" min="0" max="200" step="1" value="48">
+      </div>
+      <div class="slider-control">
+        <div class="slider-label">
+          <span class="label">Base Width Bottom</span>
+          <span class="slider-value" id="val-baseWidthBottom">48</span>
+        </div>
+        <input type="range" id="baseWidthBottom" min="0" max="200" step="1" value="48">
+      </div>
+
+      <div class="slider-control">
+        <div class="slider-label">
+          <span class="label">Chaos</span>
+          <span class="slider-value" id="val-chaos">0.00</span>
+        </div>
+        <input type="range" id="chaos" min="0" max="30" step="0.1" value="0">
+      </div>
+
+      <!-- Top Cap Controls -->
+      <div class="slider-control">
+        <div class="slider-label">
+          <span class="label">Top Cap Height</span>
+          <span class="slider-value" id="val-topCapHeight">25</span>
+        </div>
+        <input type="range" id="topCapHeight" min="0" max="150" step="1" value="25">
+      </div>
+      <div class="slider-control">
+        <div class="slider-label">
+          <span class="label">Top Focus</span>
+          <span class="slider-value" id="val-topCapFocus">0.00</span>
+        </div>
+        <input type="range" id="topCapFocus" min="-1" max="1" step="0.01" value="0">
+      </div>
+      <div class="slider-control">
+        <div class="slider-label">
+          <span class="label">Top Strength</span>
+          <span class="slider-value" id="val-topCapStrength">1.00</span>
+        </div>
+        <input type="range" id="topCapStrength" min="0" max="1" step="0.01" value="1">
+      </div>
+
+      <!-- Bottom Cap Controls -->
+      <div class="slider-control">
+        <div class="slider-label">
+          <span class="label">Bottom Cap Height</span>
+          <span class="slider-value" id="val-bottomCapHeight">25</span>
+        </div>
+        <input type="range" id="bottomCapHeight" min="0" max="150" step="1" value="25">
+      </div>
+      <div class="slider-control">
+        <div class="slider-label">
+          <span class="label">Bottom Focus</span>
+          <span class="slider-value" id="val-bottomCapFocus">0.00</span>
+        </div>
+        <input type="range" id="bottomCapFocus" min="-1" max="1" step="0.01" value="0">
+      </div>
+      <div class="slider-control">
+        <div class="slider-label">
+          <span class="label">Bottom Strength</span>
+          <span class="slider-value" id="val-bottomCapStrength">1.00</span>
+        </div>
+        <input type="range" id="bottomCapStrength" min="0" max="1" step="0.01" value="1">
+      </div>
+
+      <!-- Colorburst Controls -->
+      <div style="margin-top: 14px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <div style="font-size: 10px; color: #888; margin-bottom: 6px;">Colorburst</div>
+
+        <div class="slider-control">
+          <div class="slider-label">
+            <span class="label">Intensity</span>
+            <span class="slider-value" id="val-colorburstIntensity">0.35</span>
+          </div>
+          <input type="range" id="colorburstIntensity" min="0" max="1" step="0.01" value="0.35">
+        </div>
+
+        <div class="slider-control">
+          <div class="slider-label">
+            <span class="label">Smoothness</span>
+            <span class="slider-value" id="val-colorburstSmoothness">0.82</span>
+          </div>
+          <input type="range" id="colorburstSmoothness" min="0" max="0.995" step="0.001" value="0.82" title="Higher = colorbursts fade away much more slowly (more harmonic)">
+        </div>
+
+        <div class="slider-control">
+          <div class="slider-label">
+            <span class="label">Burst Intensity</span>
+            <span class="slider-value" id="val-colorburstBurstIntensity">0.70</span>
+          </div>
+          <input type="range" id="colorburstBurstIntensity" min="0" max="2" step="0.01" value="0.70">
+        </div>
+
+        <div style="margin-top: 4px;">
+          <label style="font-size: 10px; color: #aaa; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <input type="checkbox" id="colorburstEnabled" style="margin: 0;">
+            <span>Enable Colorburst</span>
+          </label>
+        </div>
+
+        <div style="margin-top: 3px;">
+          <label style="font-size: 10px; color: #aaa; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <input type="checkbox" id="colorburstNonAdjacent" style="margin: 0;">
+            <span>Connect Non-Adjacent Ripples</span>
+          </label>
+        </div>
+
+        <div style="margin-top: 6px;">
+          <div style="font-size: 10px; color: #aaa; margin-bottom: 2px;">Blend Mode</div>
+          <select id="colorburstBlendMode" style="width: 100%; background: #2a2a33; color: #ccc; border: 1px solid #555; font-size: 11px; padding: 3px 4px; border-radius: 4px;">
+            <option value="vibrant">Vibrant (keeps color best)</option>
+            <option value="additive">Additive (classic)</option>
+            <option value="screen">Screen</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Settings Box -->
+    <div id="settings-box" style="margin-bottom: 12px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);">
+      <div style="font-size: 10px; color: #888; margin-bottom: 6px;">Settings</div>
+      <div style="display: flex; gap: 8px;">
+        <button id="load-btn" style="flex: 1; padding: 5px; font-size: 11px; background: #2a2a33; border: 1px solid #555; color: #ccc; border-radius: 4px; cursor: pointer;">
+          Load from File
+        </button>
+        <button id="new-collection-btn" style="flex: 1; padding: 5px; font-size: 11px; background: #2a2a33; border: 1px solid #555; color: #ccc; border-radius: 4px; cursor: pointer;">
+          New Collection
+        </button>
+      </div>
+    </div>
+
+    <div id="ripples-container"></div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: true });
+
+    let width = 0;
+    let height = 0;
+    let centerX = 0;
+    let centerY = 0;
+    let dpr = 1;
+
+    let t = 0;
+    let lastTime = performance.now();
+
+    // Non-linear mapping helper — gives much more precision at low values
+    function mapSlider(visualValue, min, max, power = 2.6) {
+      const t = (visualValue - min) / (max - min);
+      const curved = Math.pow(Math.max(0, t), power);
+      return min + curved * (max - min);
+    }
+
+    // === Rippler Controls (Collection-based model) ===
+
+    // Tracks "memory" of connectivity between ripples for fade-away effect
+    const colorburstConnections = new Map();
+    let nextRippleId = 1;
+
+    const DEFAULT_RIPPLE_COLORS = ['#7ab8ff', '#a8d4ff', '#ff9f7a', '#7affa8', '#d47aff', '#ffea7a'];
+
+    let collections = [
+      {
+        id: "base",
+        name: "Base",
+        expanded: true,
+        colorburstIntensity: 1.0,
+        ripples: [
+          {
+            id: nextRippleId++,
+            name: "Left",
+            enabled: true,
+            expanded: true,
+            color: DEFAULT_RIPPLE_COLORS[0],
+            waves: [
+              { frequency: 2.8, amplitude: 38, rate: 0.35 },
+              { frequency: 5.6, amplitude: 17, rate: 0.65 },
+              { frequency: 9.3, amplitude: 6,  rate: 0.92 }
+            ]
+          },
+          {
+            id: nextRippleId++,
+            name: "Right",
+            enabled: true,
+            expanded: true,
+            color: DEFAULT_RIPPLE_COLORS[1],
+            waves: [
+              { frequency: 3.1, amplitude: 41, rate: 0.28 },
+              { frequency: 4.9, amplitude: 19, rate: 0.55 },
+              { frequency: 8.7, amplitude: 7.5, rate: 0.81 }
+            ]
+          }
+        ]
+      }
+    ];
+
+    // Overall shape
+    let SHAPE_HEIGHT = 520;
+    let BASE_WIDTH_TOP = 48;
+    let BASE_WIDTH_BOTTOM = 48;
+    let CHAOS = 0;          // global randomness / "chaos" amount
+
+    // === Cap System (expressive end control) ===
+    let TOP_CAP_HEIGHT   = 25;
+    let TOP_CAP_FOCUS    = 0;     // -1 = left, 0 = center, +1 = right
+    let TOP_CAP_STRENGTH = 1.0;   // 0 = free/whippy, 1 = strongly constrained
+
+    let BOTTOM_CAP_HEIGHT   = 25;
+    let BOTTOM_CAP_FOCUS    = 0;
+    let BOTTOM_CAP_STRENGTH = 1.0;
+
+    // === Colorburst Settings ===
+    let COLORBURST_ENABLED = true;
+    let COLORBURST_INTENSITY = 0.35;
+    let COLORBURST_SMOOTHNESS = 0.82;   // higher = smoother / more harmonic response (less flickering)
+    let COLORBURST_NON_ADJACENT = false; // if true, connect ripples that are not next to each other horizontally
+    let COLORBURST_BURST_INTENSITY = 0.7; // dedicated control for the glows at crossing points (0 = off)
+    let COLORBURST_BLEND_MODE = 'vibrant'; // 'additive', 'screen', 'vibrant'
+
+    // Envelope (how strong the waves are at different heights)
+    // 0 = no wave at top/bottom, 1 = full strength in middle
+    function amplitudeEnvelope(u) {
+      return Math.pow(Math.sin(u * Math.PI), 1.1);
+    }
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      centerX = width * 0.5;
+      centerY = height * 0.5;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, width, height);
+
+      const halfH = SHAPE_HEIGHT / 2;
+      const topY = centerY - halfH;
+      const bottomY = centerY + halfH;
+
+      const segments = 400;   // high segment count to support very high frequencies (up to 100k will heavily alias)
+
+      // Generate points for every enabled ripple across all collections
+      const allEnabledRipples = [];
+      collections.forEach(col => {
+        col.ripples.forEach(r => {
+          if (r.enabled !== false) {
+            allEnabledRipples.push(r);
+          }
+        });
+      });
+
+      const allRipplePoints = [];
+
+      allEnabledRipples.forEach((ripple, rIndex) => {
+        const points = [];
+        for (let i = 0; i <= segments; i++) {
+          const u = i / segments;
+          const y = topY + u * SHAPE_HEIGHT;
+          // Reduce normal envelope damping near free ends (lets them whip more)
+          const baseEnv = amplitudeEnvelope(u);
+          const topDamping = TOP_CAP_STRENGTH * (1 - u);
+          const bottomDamping = BOTTOM_CAP_STRENGTH * u;
+          const env = baseEnv * (0.6 + 0.4 * (1 - Math.max(topDamping, bottomDamping)));
+
+          let wave = 0;
+          ripple.waves.forEach((w, wi) => {
+            // End freedom: when cap strength is low, the top and bottom can whip more wildly
+            const topFreedom = (1 - TOP_CAP_STRENGTH) * (1 - u);           // stronger near top when strength low
+            const bottomFreedom = (1 - BOTTOM_CAP_STRENGTH) * u;            // stronger near bottom when strength low
+            const endFreedom = Math.max(topFreedom, bottomFreedom) * 1.6;   // boost factor
+
+            // Frequency can go very high (0–100000). Above ~200 it heavily aliases due to discrete sampling.
+            const base = Math.sin(u * w.frequency * Math.PI + t * w.rate) * w.amplitude * (1 + endFreedom);
+
+            // Chaos: slow organic drift + some fast jitter (also boosted near free ends)
+            const chaosDrift = Math.sin(t * 0.6 + rIndex * 3.7 + wi * 1.9) * CHAOS * 0.6 * (1 + endFreedom * 0.8);
+            const chaosJitter = (Math.random() - 0.5) * CHAOS * 0.35 * (1 + endFreedom);
+
+            wave += base + chaosDrift + chaosJitter;
+          });
+
+          // Even horizontal spacing across all enabled ripples
+          const rippleT = allEnabledRipples.length === 1 ? 0.5 : rIndex / (allEnabledRipples.length - 1);
+
+          // Interpolate base width between top and bottom
+          const effectiveBaseWidth = BASE_WIDTH_TOP + (BASE_WIDTH_BOTTOM - BASE_WIDTH_TOP) * u;
+          let rippleX = centerX - effectiveBaseWidth / 2 + effectiveBaseWidth * rippleT;
+
+          // === Cap shaping on actual ripple points (this makes Height + Focus feel strong) ===
+          // Top cap influence
+          const topCapReach = Math.min(0.38, TOP_CAP_HEIGHT / 380);
+          if (u < topCapReach && TOP_CAP_HEIGHT > 0) {
+            const topCapT = Math.pow(1 - (u / topCapReach), 1.6); // stronger closer to the very top
+            const pull = topCapT * TOP_CAP_STRENGTH;
+            const targetX = centerX + (TOP_CAP_FOCUS * effectiveBaseWidth * 0.65);
+            rippleX = rippleX + (targetX - rippleX) * pull * 0.9;
+          }
+
+          // Bottom cap influence
+          const bottomCapReach = Math.min(0.38, BOTTOM_CAP_HEIGHT / 380);
+          if (u > (1 - bottomCapReach) && BOTTOM_CAP_HEIGHT > 0) {
+            const bottomCapT = Math.pow((u - (1 - bottomCapReach)) / bottomCapReach, 1.6);
+            const pull = bottomCapT * BOTTOM_CAP_STRENGTH;
+            const targetX = centerX + (BOTTOM_CAP_FOCUS * effectiveBaseWidth * 0.65);
+            rippleX = rippleX + (targetX - rippleX) * pull * 0.9;
+          }
+
+          const x = rippleX + wave * env;
+          points.push({ x, y });
+        }
+        allRipplePoints.push({ points, ripple });
+      });
+
+      if (allRipplePoints.length === 0) {
+        return; // nothing to draw
+      }
+
+      const leftItem = allRipplePoints[0];
+      const rightItem = allRipplePoints[allRipplePoints.length - 1];
+      const leftPoints = leftItem.points;
+      const rightPoints = rightItem.points;
+
+      // === Compute expressive cap control points ===
+      const topFocusX = centerX + (TOP_CAP_FOCUS * (BASE_WIDTH_TOP * 0.9));
+      const topControlY = topY - (TOP_CAP_HEIGHT * TOP_CAP_STRENGTH);
+
+      const bottomFocusX = centerX + (BOTTOM_CAP_FOCUS * (BASE_WIDTH_BOTTOM * 0.9));
+      const bottomControlY = bottomY + (BOTTOM_CAP_HEIGHT * BOTTOM_CAP_STRENGTH);
+
+      // Draw the closed shape
+      ctx.save();
+
+      // Subtle fill using outer ripples
+      ctx.fillStyle = 'rgba(20, 25, 35, 0.6)';
+      ctx.beginPath();
+      ctx.moveTo(leftPoints[0].x, leftPoints[0].y);
+
+      // Top cap (weaker when strength is low)
+      if (TOP_CAP_STRENGTH > 0.02) {
+        ctx.quadraticCurveTo(topFocusX, topControlY, rightPoints[0].x, rightPoints[0].y);
+      } else {
+        ctx.lineTo(rightPoints[0].x, rightPoints[0].y);
+      }
+
+      for (let i = 1; i < rightPoints.length; i++) {
+        ctx.lineTo(rightPoints[i].x, rightPoints[i].y);
+      }
+
+      // Bottom cap
+      if (BOTTOM_CAP_STRENGTH > 0.02) {
+        ctx.quadraticCurveTo(bottomFocusX, bottomControlY, leftPoints[leftPoints.length - 1].x, leftPoints[leftPoints.length - 1].y);
+      } else {
+        ctx.lineTo(leftPoints[leftPoints.length - 1].x, leftPoints[leftPoints.length - 1].y);
+      }
+
+      for (let i = leftPoints.length - 2; i >= 0; i--) {
+        ctx.lineTo(leftPoints[i].x, leftPoints[i].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw all strands (outer ones thicker/glowier)
+      ctx.shadowBlur = 14;
+
+      allRipplePoints.forEach((item, index) => {
+        const { points, ripple } = item;
+        const isOuter = (index === 0 || index === allRipplePoints.length - 1);
+        const baseColor = ripple.color || '#7ab8ff';
+
+        ctx.strokeStyle = baseColor;
+        ctx.lineWidth = isOuter ? 2.2 : 1.0;
+        ctx.shadowColor = baseColor;
+        ctx.shadowBlur = isOuter ? 16 : 4;
+
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i].x, points[i].y);
+        }
+        ctx.stroke();
+      });
+
+      // Bright inner highlight on outer edges
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 1.0;
+
+      // Use the actual outer ripples' colors for the highlight
+      const outerLeftColor = leftItem.ripple.color || '#e0f0ff';
+      const outerRightColor = rightItem.ripple.color || '#e0f0ff';
+
+      ctx.strokeStyle = outerLeftColor;
+      ctx.beginPath();
+      ctx.moveTo(leftPoints[0].x, leftPoints[0].y);
+
+      if (TOP_CAP_STRENGTH > 0.02) {
+        ctx.quadraticCurveTo(topFocusX, topControlY, rightPoints[0].x, rightPoints[0].y);
+      } else {
+        ctx.lineTo(rightPoints[0].x, rightPoints[0].y);
+      }
+      for (let i = 1; i < rightPoints.length; i++) {
+        ctx.lineTo(rightPoints[i].x, rightPoints[i].y);
+      }
+
+      if (BOTTOM_CAP_STRENGTH > 0.02) {
+        ctx.quadraticCurveTo(bottomFocusX, bottomControlY, leftPoints[leftPoints.length - 1].x, leftPoints[leftPoints.length - 1].y);
+      } else {
+        ctx.lineTo(leftPoints[leftPoints.length - 1].x, leftPoints[leftPoints.length - 1].y);
+      }
+      for (let i = leftPoints.length - 2; i >= 0; i--) {
+        ctx.lineTo(leftPoints[i].x, leftPoints[i].y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.restore();
+
+      // === Colorbursts: connectivity areas between intersecting ripples ===
+      drawColorbursts(allRipplePoints, topY, bottomY);
+    }
+
+    // Simple 2D line segment intersection helper
+    function segmentsIntersect(p1, p2, p3, p4) {
+      const denom = (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
+      if (Math.abs(denom) < 1e-8) return null;
+
+      const ua = ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) / denom;
+      const ub = ((p2.x - p1.x) * (p1.y - p3.y) - (p2.y - p1.y) * (p1.x - p3.x)) / denom;
+
+      if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+        return {
+          x: p1.x + ua * (p2.x - p1.x),
+          y: p1.y + ua * (p2.y - p1.y),
+          ua,
+          ub
+        };
+      }
+      return null;
+    }
+
+    function drawColorbursts(allRipplePoints, topY, bottomY) {
+      if (!COLORBURST_ENABLED || allRipplePoints.length < 2) return;
+
+      ctx.save();
+
+      // Set composite operation based on blend mode
+      if (COLORBURST_BLEND_MODE === 'additive') {
+        ctx.globalCompositeOperation = 'lighter';
+      } else if (COLORBURST_BLEND_MODE === 'screen') {
+        ctx.globalCompositeOperation = 'screen';
+      } else {
+        // 'vibrant' - we handle color in mixing, use normal for better color control
+        ctx.globalCompositeOperation = 'source-over';
+      }
+
+      // Update connection strengths (fade + reinforce)
+      const currentPairs = new Set();
+
+      const pairCount = allRipplePoints.length;
+      const doAllPairs = COLORBURST_NON_ADJACENT;
+
+      for (let i = 0; i < pairCount; i++) {
+        const startJ = doAllPairs ? 0 : i + 1;
+
+        for (let j = startJ; j < pairCount; j++) {
+          if (i === j) continue;
+
+          const itemA = allRipplePoints[i];
+          const itemB = allRipplePoints[j];
+          const rippleA = itemA.ripple;
+          const rippleB = itemB.ripple;
+
+          const key = getConnectionKey(rippleA, rippleB);
+          currentPairs.add(key);
+
+          let strength = colorburstConnections.get(key) || 0;
+
+          // Check intersections this frame
+          const crossings = findCrossings(itemA.points, itemB.points);
+          const isIntersecting = crossings.length > 0;
+
+          // Continuous overlap this frame (0 to 1+), instead of hard on/off
+          // More crossings = stronger immediate "pull" toward full strength
+          let currentOverlap = 0;
+          if (isIntersecting) {
+            currentOverlap = Math.min(1.0, crossings.length * 0.25);  // tune this factor if needed
+          }
+
+          // Exponential smoothing — this is what the slider controls
+          strength = strength * COLORBURST_SMOOTHNESS + currentOverlap * (1 - COLORBURST_SMOOTHNESS);
+
+          colorburstConnections.set(key, strength);
+
+          // Only skip drawing if strength is negligible
+          if (strength < 0.015) {
+            if (strength < 0.005) colorburstConnections.delete(key);
+            continue;
+          }
+
+          // Draw the geometric regions with faded strength
+          const colorA = rippleA.color || '#7ab8ff';
+          const colorB = rippleB.color || '#7ab8ff';
+          const mixedColor = getMixedBurstColor(colorA, colorB, COLORBURST_BLEND_MODE);
+
+          // Per-collection intensity (calculated once per pair)
+          const collectionA = getCollectionForRipple(rippleA);
+          const collectionB = getCollectionForRipple(rippleB);
+          const colIntensityA = collectionA ? collectionA.colorburstIntensity : 1.0;
+          const colIntensityB = collectionB ? collectionB.colorburstIntensity : 1.0;
+          const collectionFactor = (colIntensityA + colIntensityB) / 2;
+
+          // Stable colored band between the two full curves.
+          // This is far less flickery than building polygons only between exact per-frame crossings.
+          // The smoothed strength now cleanly controls presence and fade time.
+          if (strength > 0.02) {
+            ctx.beginPath();
+
+            // Full curve of first ripple (top to bottom)
+            ctx.moveTo(itemA.points[0].x, itemA.points[0].y);
+            for (let k = 1; k < itemA.points.length; k++) {
+              ctx.lineTo(itemA.points[k].x, itemA.points[k].y);
+            }
+
+            // Back along second ripple (bottom to top)
+            for (let k = itemB.points.length - 1; k >= 0; k--) {
+              ctx.lineTo(itemB.points[k].x, itemB.points[k].y);
+            }
+
+            ctx.closePath();
+
+            ctx.fillStyle = mixedColor;
+
+            // Alpha driven almost entirely by the smoothed strength (the whole point of the Smoothness slider)
+            const alpha = (0.04 + strength * 0.82) * COLORBURST_INTENSITY * collectionFactor;
+
+            ctx.globalAlpha = Math.max(0.01, Math.min(0.85, alpha));
+            ctx.fill();
+          }
+
+          // === Burst glows at crossing points ===
+          // Draw small glowing dots at each actual intersection for extra "pop"
+          if (COLORBURST_BURST_INTENSITY > 0) {
+            const burstBaseSize = 3.5;
+            const burstGlowSize = 14;
+
+            for (let c = 0; c < crossings.length; c++) {
+              const cp = crossings[c].point;
+              const combinedIntensity = COLORBURST_INTENSITY * COLORBURST_BURST_INTENSITY * collectionFactor;
+              const burstAlpha = strength * 0.9 * combinedIntensity;
+
+              ctx.save();
+              ctx.shadowColor = mixedColor;
+              ctx.shadowBlur = burstGlowSize * strength * combinedIntensity;
+
+              ctx.fillStyle = mixedColor;
+              ctx.globalAlpha = burstAlpha;
+
+              // Core bright dot
+              ctx.beginPath();
+              ctx.arc(cp.x, cp.y, burstBaseSize * (0.6 + strength * 0.5), 0, Math.PI * 2);
+              ctx.fill();
+
+              // Softer outer glow
+              ctx.globalAlpha = burstAlpha * 0.4;
+              ctx.beginPath();
+              ctx.arc(cp.x, cp.y, burstGlowSize * 0.6 * strength, 0, Math.PI * 2);
+              ctx.fill();
+
+              ctx.restore();
+            }
+          }
+        }
+      }
+
+      // Gentle cleanup of almost-dead connections
+      for (const [key, str] of colorburstConnections) {
+        if (!currentPairs.has(key) && str < 0.005) {
+          colorburstConnections.delete(key);
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function getConnectionKey(rippleA, rippleB) {
+      const idA = rippleA.id || (rippleA.id = nextRippleId++);
+      const idB = rippleB.id || (rippleB.id = nextRippleId++);
+      return idA < idB ? `${idA}-${idB}` : `${idB}-${idA}`;
+    }
+
+    function findCrossings(pointsA, pointsB) {
+      const crossings = [];
+      for (let ai = 0; ai < pointsA.length - 1; ai++) {
+        for (let bi = 0; bi < pointsB.length - 1; bi++) {
+          const inter = segmentsIntersect(pointsA[ai], pointsA[ai + 1], pointsB[bi], pointsB[bi + 1]);
+          if (inter) {
+            crossings.push({
+              ua: inter.ua,
+              ub: inter.ub,
+              indexA: ai,
+              indexB: bi,
+              point: inter
+            });
+          }
+        }
+      }
+      return crossings;
+    }
+
+    // Simple hex color mixer
+    function mixColors(hex1, hex2, t) {
+      const c1 = hexToRgb(hex1);
+      const c2 = hexToRgb(hex2);
+      const r = Math.round(c1.r * (1 - t) + c2.r * t);
+      const g = Math.round(c1.g * (1 - t) + c2.g * t);
+      const b = Math.round(c1.b * (1 - t) + c2.b * t);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 122, g: 184, b: 255 };
+    }
+
+    // Helper to find which collection a ripple belongs to
+    function getCollectionForRipple(ripple) {
+      for (let c = 0; c < collections.length; c++) {
+        if (collections[c].ripples.includes(ripple)) {
+          return collections[c];
+        }
+      }
+      return null;
+    }
+
+    // Improved color mixing for Colorbursts - tries hard to preserve color
+    function getMixedBurstColor(hex1, hex2, mode) {
+      if (mode === 'additive') {
+        // Classic additive (tends to white)
+        return mixColors(hex1, hex2, 0.5);
+      }
+
+      if (mode === 'screen') {
+        // Screen blend (brighter, keeps more color than additive)
+        const c1 = hexToRgb(hex1);
+        const c2 = hexToRgb(hex2);
+        const r = 255 - Math.round((255 - c1.r) * (255 - c2.r) / 255);
+        const g = 255 - Math.round((255 - c1.g) * (255 - c2.g) / 255);
+        const b = 255 - Math.round((255 - c1.b) * (255 - c2.b) / 255);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+
+      // 'vibrant' - mix in HSL space to protect hue and saturation
+      const hsl1 = rgbToHsl(hexToRgb(hex1));
+      const hsl2 = rgbToHsl(hexToRgb(hex2));
+
+      // Average hue (handle wrap-around)
+      let h = (hsl1.h + hsl2.h) / 2;
+      if (Math.abs(hsl1.h - hsl2.h) > 180) {
+        h = (h + 180) % 360;
+      }
+
+      // Keep good saturation (bias toward the more saturated color)
+      const s = Math.max(hsl1.s, hsl2.s) * 0.7 + (hsl1.s + hsl2.s) / 2 * 0.3;
+
+      // Slightly darken to avoid pure white
+      const l = (hsl1.l + hsl2.l) / 2 * 0.85;
+
+      const rgb = hslToRgb(h, s, l);
+      return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+    }
+
+    // HSL conversion helpers
+    function rgbToHsl(rgb) {
+      let r = rgb.r / 255, g = rgb.g / 255, b = rgb.b / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      return { h: h * 360, s: s, l: l };
+    }
+
+    function hslToRgb(h, s, l) {
+      h /= 360;
+      let r, g, b;
+
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+      };
+    }
+
+    // === Dynamic Controls (Collection-based) ===
+    function renderAllControls() {
+      const container = document.getElementById('ripples-container');
+      container.innerHTML = '';
+
+      collections.forEach((collection, colIndex) => {
+        const colDiv = document.createElement('div');
+        colDiv.className = 'collection';
+        // Uses .collection class styles
+
+        // Collection Header
+        const colHeader = document.createElement('div');
+        colHeader.style.display = 'flex';
+        colHeader.style.alignItems = 'center';
+        colHeader.style.gap = '8px';
+        colHeader.style.marginBottom = '8px';
+
+        // Collection-level expand/collapse toggle
+        const colToggle = document.createElement('button');
+        colToggle.className = 'expand-toggle';
+        colToggle.textContent = (collection.expanded !== false) ? '▼' : '▶';
+        colToggle.title = 'Toggle collection';
+        colToggle.onclick = () => {
+          collection.expanded = !(collection.expanded !== false);
+          renderAllControls();
+        };
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = collection.name;
+        nameInput.style.flex = '1';
+        nameInput.style.background = 'transparent';
+        nameInput.style.border = '1px solid #444';
+        nameInput.style.color = '#ddd';
+        nameInput.style.padding = '4px 6px';
+        nameInput.style.fontSize = '11px';
+        nameInput.onchange = () => {
+          collection.name = nameInput.value.trim() || 'Untitled';
+        };
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Save';
+        saveBtn.style.fontSize = '10px';
+        saveBtn.style.padding = '3px 8px';
+        saveBtn.onclick = () => saveCollection(colIndex);
+
+        const deleteColBtn = document.createElement('button');
+        deleteColBtn.textContent = '×';
+        deleteColBtn.style.fontSize = '14px';
+        deleteColBtn.style.padding = '2px 6px';
+        deleteColBtn.style.color = '#ff6b6b';
+        deleteColBtn.onclick = () => {
+          collections.splice(colIndex, 1);
+          renderAllControls();
+          draw();
+        };
+
+        colHeader.appendChild(colToggle);
+        colHeader.appendChild(nameInput);
+
+        // Per-collection Colorburst intensity (compact)
+        const burstLabel = document.createElement('span');
+        burstLabel.textContent = 'B';
+        burstLabel.style.fontSize = '9px';
+        burstLabel.style.color = '#888';
+        burstLabel.style.marginLeft = '4px';
+
+        const burstSlider = document.createElement('input');
+        burstSlider.type = 'range';
+        burstSlider.min = '0';
+        burstSlider.max = '1';
+        burstSlider.step = '0.05';
+        burstSlider.value = collection.colorburstIntensity ?? 1.0;
+        burstSlider.style.width = '60px';
+        burstSlider.style.height = '14px';
+        burstSlider.style.accentColor = '#7ab8ff';
+        burstSlider.oninput = () => {
+          collection.colorburstIntensity = parseFloat(burstSlider.value);
+          draw();
+        };
+
+        colHeader.appendChild(burstLabel);
+        colHeader.appendChild(burstSlider);
+
+        colHeader.appendChild(saveBtn);
+        colHeader.appendChild(deleteColBtn);
+
+        colDiv.appendChild(colHeader);
+
+        // Content wrapper (hidden when collection is collapsed)
+        const colContent = document.createElement('div');
+        if (collection.expanded === false) {
+          colContent.style.display = 'none';
+        }
+
+        // Render ripples inside this collection
+        collection.ripples.forEach((ripple, rippleIndex) => {
+          const rippleDiv = document.createElement('div');
+          rippleDiv.className = 'ripple';
+          rippleDiv.style.marginBottom = '6px';
+
+          const header = document.createElement('div');
+          header.className = 'ripple-header';
+          header.style.display = 'flex';
+          header.style.alignItems = 'center';
+          header.style.gap = '6px';
+
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = ripple.enabled !== false;
+          checkbox.onchange = () => {
+            ripple.enabled = checkbox.checked;
+            draw();
+          };
+
+          const title = document.createElement('h4');
+          title.textContent = ripple.name;
+          title.style.flex = '1';
+          title.style.minWidth = '0';
+          title.style.overflow = 'hidden';
+          title.style.textOverflow = 'ellipsis';
+          title.style.whiteSpace = 'nowrap';
+
+          // Color picker - always visible even when ripple is collapsed
+          const colorInput = document.createElement('input');
+          colorInput.type = 'color';
+          colorInput.value = ripple.color || '#7ab8ff';
+          colorInput.title = 'Ripple color';
+          colorInput.oninput = () => {
+            ripple.color = colorInput.value;
+            draw();
+          };
+
+          const expandBtn = document.createElement('button');
+          expandBtn.className = 'expand-toggle';
+          expandBtn.textContent = (ripple.expanded !== false) ? '▼' : '▶';
+          expandBtn.onclick = () => {
+            ripple.expanded = !(ripple.expanded !== false);
+            renderAllControls();
+          };
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'delete-btn';
+          delBtn.textContent = '×';
+          delBtn.onclick = () => {
+            collection.ripples.splice(rippleIndex, 1);
+            renderAllControls();
+            draw();
+          };
+
+          header.appendChild(checkbox);
+          header.appendChild(title);
+          header.appendChild(colorInput);
+          header.appendChild(expandBtn);
+          header.appendChild(delBtn);
+
+          rippleDiv.appendChild(header);
+
+          const controls = document.createElement('div');
+          controls.className = 'ripple-controls';
+          if (ripple.expanded === false) {
+            controls.style.display = 'none';
+          }
+
+          ripple.waves.forEach((wave, waveIndex) => {
+            const group = document.createElement('div');
+            group.className = 'wave-group';
+
+            const freqVisual = Math.pow(wave.frequency / 100000, 1 / 2.6) * 100;
+            const rateVisual = Math.pow(wave.rate / 1, 1 / 2.6);
+
+            group.innerHTML = `
+              <div class="slider-control">
+                <div class="slider-label">
+                  <span class="label">Wave ${waveIndex + 1} · Frequency</span>
+                  <span class="slider-value freq-value" id="col${colIndex}-r${rippleIndex}-w${waveIndex}-freq" title="Click to enter exact frequency (0-100000)">${wave.frequency.toFixed(2)}</span>
+                </div>
+                <input type="range" min="0" max="100" step="0.1" value="${freqVisual}">
+              </div>
+
+              <div class="slider-control">
+                <div class="slider-label">
+                  <span class="label">Amplitude</span>
+                  <span class="slider-value" id="col${colIndex}-r${rippleIndex}-w${waveIndex}-amp">${wave.amplitude.toFixed(1)}</span>
+                </div>
+                <input type="range" min="0" max="90" step="0.5" value="${wave.amplitude}">
+              </div>
+
+              <div class="slider-control">
+                <div class="slider-label">
+                  <span class="label">Rate</span>
+                  <span class="slider-value" id="col${colIndex}-r${rippleIndex}-w${waveIndex}-rate">${wave.rate.toFixed(2)}</span>
+                </div>
+                <input type="range" min="0" max="1" step="0.001" value="${rateVisual}">
+              </div>
+            `;
+
+            controls.appendChild(group);
+
+            const inputs = group.querySelectorAll('input');
+
+            inputs[0].oninput = (e) => {
+              const visual = parseFloat(e.target.value); // slider 0-100
+              const t = visual / 100;
+              const curved = Math.pow(Math.max(0, t), 2.6);
+              wave.frequency = curved * 100000;
+              document.getElementById(`col${colIndex}-r${rippleIndex}-w${waveIndex}-freq`).textContent = wave.frequency.toFixed(2);
+              draw();
+            };
+            inputs[1].oninput = (e) => {
+              wave.amplitude = parseFloat(e.target.value);
+              document.getElementById(`col${colIndex}-r${rippleIndex}-w${waveIndex}-amp`).textContent = wave.amplitude.toFixed(1);
+            };
+            inputs[2].oninput = (e) => {
+              const visual = parseFloat(e.target.value);
+              wave.rate = Math.max(0, Math.min(1, mapSlider(visual, 0, 1, 2.6)));
+              document.getElementById(`col${colIndex}-r${rippleIndex}-w${waveIndex}-rate`).textContent = wave.rate.toFixed(2);
+            };
+          });
+
+          rippleDiv.appendChild(controls);
+          colContent.appendChild(rippleDiv);
+        });
+
+        // + Add Ripple button inside this collection
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '+ Add Ripple';
+        addBtn.style.width = '100%';
+        addBtn.style.marginTop = '6px';
+        addBtn.style.padding = '4px';
+        addBtn.style.fontSize = '11px';
+        addBtn.style.background = '#2a2a33';
+        addBtn.style.border = '1px solid #555';
+        addBtn.style.color = '#ccc';
+        addBtn.style.borderRadius = '4px';
+        addBtn.style.cursor = 'pointer';
+        addBtn.onclick = () => addNewRippleToCollection(colIndex);
+
+        colContent.appendChild(addBtn);
+
+        colDiv.appendChild(colContent);
+        container.appendChild(colDiv);
+      });
+    }
+
+    function addNewRippleToCollection(colIndex) {
+      const collection = collections[colIndex];
+      const lastRipple = collection.ripples[collection.ripples.length - 1];
+      const colorIndex = collection.ripples.length % DEFAULT_RIPPLE_COLORS.length;
+      const newRipple = {
+        id: nextRippleId++,
+        name: `Ripple ${collection.ripples.length + 1}`,
+        enabled: true,
+        expanded: true,
+        color: DEFAULT_RIPPLE_COLORS[colorIndex],
+        waves: lastRipple ? lastRipple.waves.map(w => ({ ...w })) : [
+          { frequency: 3, amplitude: 30, rate: 0.4 }
+        ]
+      };
+      collection.ripples.push(newRipple);
+      renderAllControls();
+    }
+
+    function saveCollection(colIndex) {
+      const collection = collections[colIndex];
+      const data = {
+        name: collection.name,
+        ripples: collection.ripples
+      };
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      const safeName = collection.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'collection';
+      a.download = `ripple-effect-${safeName}.json`;
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function loadCollectionFromFile() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+
+            const newCollection = {
+              id: 'import-' + Date.now(),
+              name: data.name || 'Imported',
+              expanded: false, // collections start collapsed when loaded
+              colorburstIntensity: 1.0,
+              ripples: (data.ripples || []).map((r, i) => ({
+                id: nextRippleId++,
+                name: r.name || 'Ripple',
+                enabled: r.enabled !== false,
+                expanded: false, // ripples inside also start collapsed
+                color: r.color || DEFAULT_RIPPLE_COLORS[i % DEFAULT_RIPPLE_COLORS.length],
+                waves: r.waves || []
+              }))
+            };
+
+            collections.push(newCollection);
+            renderAllControls();
+            draw();
+          } catch (err) {
+            alert('Failed to load file: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    function createNewCollection() {
+      const newCol = {
+        id: 'col-' + Date.now(),
+        name: `Collection ${collections.length + 1}`,
+        expanded: true,
+        colorburstIntensity: 1.0,
+        ripples: []
+      };
+      collections.push(newCol);
+      renderAllControls();
+    }
+
+    function update() {
+      const now = performance.now();
+      const dt = Math.min((now - lastTime) / 16.0, 2.5);
+      lastTime = now;
+
+      t += dt * 0.9;   // overall animation speed
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    function init() {
+      resize();
+      window.addEventListener('resize', resize, { passive: true });
+
+      // === Global sliders ===
+      const shapeSlider = document.getElementById('shapeHeight');
+      shapeSlider.value = SHAPE_HEIGHT;
+      document.getElementById('val-shapeHeight').textContent = SHAPE_HEIGHT;
+
+      shapeSlider.oninput = (e) => {
+        SHAPE_HEIGHT = parseInt(e.target.value);
+        document.getElementById('val-shapeHeight').textContent = SHAPE_HEIGHT;
+      };
+
+      // Base Width Top
+      const baseTopSlider = document.getElementById('baseWidthTop');
+      const baseTopVal = document.getElementById('val-baseWidthTop');
+      baseTopSlider.value = BASE_WIDTH_TOP;
+      baseTopVal.textContent = BASE_WIDTH_TOP;
+
+      baseTopSlider.oninput = (e) => {
+        BASE_WIDTH_TOP = parseInt(e.target.value);
+        baseTopVal.textContent = BASE_WIDTH_TOP;
+        draw();
+      };
+
+      // Base Width Bottom
+      const baseBottomSlider = document.getElementById('baseWidthBottom');
+      const baseBottomVal = document.getElementById('val-baseWidthBottom');
+      baseBottomSlider.value = BASE_WIDTH_BOTTOM;
+      baseBottomVal.textContent = BASE_WIDTH_BOTTOM;
+
+      baseBottomSlider.oninput = (e) => {
+        BASE_WIDTH_BOTTOM = parseInt(e.target.value);
+        baseBottomVal.textContent = BASE_WIDTH_BOTTOM;
+        draw();
+      };
+
+      // Make sure displays are correct on init
+      baseTopVal.textContent = BASE_WIDTH_TOP;
+      baseBottomVal.textContent = BASE_WIDTH_BOTTOM;
+
+      // === Colorburst Controls ===
+      const cbEnabled = document.getElementById('colorburstEnabled');
+      cbEnabled.checked = COLORBURST_ENABLED;
+      cbEnabled.onchange = () => {
+        COLORBURST_ENABLED = cbEnabled.checked;
+        draw();
+      };
+
+      const cbIntensity = document.getElementById('colorburstIntensity');
+      const cbIntensityVal = document.getElementById('val-colorburstIntensity');
+      cbIntensity.value = COLORBURST_INTENSITY;
+      cbIntensityVal.textContent = COLORBURST_INTENSITY.toFixed(2);
+
+      cbIntensity.oninput = (e) => {
+        COLORBURST_INTENSITY = parseFloat(e.target.value);
+        cbIntensityVal.textContent = COLORBURST_INTENSITY.toFixed(2);
+        draw();
+      };
+
+      const cbSmooth = document.getElementById('colorburstSmoothness');
+      const cbSmoothVal = document.getElementById('val-colorburstSmoothness');
+      cbSmooth.value = COLORBURST_SMOOTHNESS;
+      cbSmoothVal.textContent = COLORBURST_SMOOTHNESS.toFixed(2);
+
+      cbSmooth.oninput = (e) => {
+        COLORBURST_SMOOTHNESS = parseFloat(e.target.value);
+        cbSmoothVal.textContent = COLORBURST_SMOOTHNESS.toFixed(2);
+        draw();
+      };
+
+      // Initialize display
+      cbSmoothVal.textContent = COLORBURST_SMOOTHNESS.toFixed(2);
+
+      const cbBurst = document.getElementById('colorburstBurstIntensity');
+      const cbBurstVal = document.getElementById('val-colorburstBurstIntensity');
+      cbBurst.value = COLORBURST_BURST_INTENSITY;
+      cbBurstVal.textContent = COLORBURST_BURST_INTENSITY.toFixed(2);
+
+      cbBurst.oninput = (e) => {
+        COLORBURST_BURST_INTENSITY = parseFloat(e.target.value);
+        cbBurstVal.textContent = COLORBURST_BURST_INTENSITY.toFixed(2);
+        draw();
+      };
+
+      const cbNonAdj = document.getElementById('colorburstNonAdjacent');
+      cbNonAdj.checked = COLORBURST_NON_ADJACENT;
+      cbNonAdj.onchange = () => {
+        COLORBURST_NON_ADJACENT = cbNonAdj.checked;
+        draw();
+      };
+
+      const blendSelect = document.getElementById('colorburstBlendMode');
+      blendSelect.value = COLORBURST_BLEND_MODE;
+      blendSelect.onchange = () => {
+        COLORBURST_BLEND_MODE = blendSelect.value;
+        draw();
+      };
+
+      // Initialize
+      blendSelect.value = COLORBURST_BLEND_MODE;
+
+      // Make sure initial values are shown
+      cbIntensityVal.textContent = COLORBURST_INTENSITY.toFixed(2);
+      cbSmoothVal.textContent = COLORBURST_SMOOTHNESS.toFixed(2);
+      cbBurstVal.textContent = COLORBURST_BURST_INTENSITY.toFixed(2);
+
+      // Chaos slider
+      const chaosSlider = document.getElementById('chaos');
+      const chaosVal = document.getElementById('val-chaos');
+      chaosSlider.value = CHAOS;
+      chaosVal.textContent = CHAOS.toFixed(2);
+
+      chaosSlider.oninput = (e) => {
+        CHAOS = parseFloat(e.target.value);
+        chaosVal.textContent = CHAOS.toFixed(2);
+      };
+
+      // Make sure chaos display is correct on init
+      chaosVal.textContent = CHAOS.toFixed(2);
+
+      // === Top Cap Controls ===
+      const topH = document.getElementById('topCapHeight');
+      const topHVal = document.getElementById('val-topCapHeight');
+      topH.value = TOP_CAP_HEIGHT;
+      topHVal.textContent = TOP_CAP_HEIGHT;
+      topH.oninput = (e) => { TOP_CAP_HEIGHT = parseInt(e.target.value); topHVal.textContent = TOP_CAP_HEIGHT; draw(); };
+
+      const topF = document.getElementById('topCapFocus');
+      const topFVal = document.getElementById('val-topCapFocus');
+      topF.value = TOP_CAP_FOCUS;
+      topFVal.textContent = TOP_CAP_FOCUS.toFixed(2);
+      topF.oninput = (e) => { TOP_CAP_FOCUS = parseFloat(e.target.value); topFVal.textContent = TOP_CAP_FOCUS.toFixed(2); draw(); };
+
+      const topS = document.getElementById('topCapStrength');
+      const topSVal = document.getElementById('val-topCapStrength');
+      topS.value = TOP_CAP_STRENGTH;
+      topSVal.textContent = TOP_CAP_STRENGTH.toFixed(2);
+      topS.oninput = (e) => { TOP_CAP_STRENGTH = parseFloat(e.target.value); topSVal.textContent = TOP_CAP_STRENGTH.toFixed(2); draw(); };
+
+      // === Bottom Cap Controls ===
+      const botH = document.getElementById('bottomCapHeight');
+      const botHVal = document.getElementById('val-bottomCapHeight');
+      botH.value = BOTTOM_CAP_HEIGHT;
+      botHVal.textContent = BOTTOM_CAP_HEIGHT;
+      botH.oninput = (e) => { BOTTOM_CAP_HEIGHT = parseInt(e.target.value); botHVal.textContent = BOTTOM_CAP_HEIGHT; draw(); };
+
+      const botF = document.getElementById('bottomCapFocus');
+      const botFVal = document.getElementById('val-bottomCapFocus');
+      botF.value = BOTTOM_CAP_FOCUS;
+      botFVal.textContent = BOTTOM_CAP_FOCUS.toFixed(2);
+      botF.oninput = (e) => { BOTTOM_CAP_FOCUS = parseFloat(e.target.value); botFVal.textContent = BOTTOM_CAP_FOCUS.toFixed(2); draw(); };
+
+      const botS = document.getElementById('bottomCapStrength');
+      const botSVal = document.getElementById('val-bottomCapStrength');
+      botS.value = BOTTOM_CAP_STRENGTH;
+      botSVal.textContent = BOTTOM_CAP_STRENGTH.toFixed(2);
+      botS.oninput = (e) => { BOTTOM_CAP_STRENGTH = parseFloat(e.target.value); botSVal.textContent = BOTTOM_CAP_STRENGTH.toFixed(2); draw(); };
+
+      // === Collections + Controls ===
+      renderAllControls();
+
+      document.getElementById('load-btn').addEventListener('click', loadCollectionFromFile);
+      document.getElementById('new-collection-btn').addEventListener('click', createNewCollection);
+
+      lastTime = performance.now();
+      loop();
+    }
+
+    init();
+  </script>
+</body>
+</html>
