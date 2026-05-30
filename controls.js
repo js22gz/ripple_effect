@@ -215,46 +215,64 @@ function createSelect({ label, getValue, setValue, options, onChange }) {
   return { element: wrapper, update: sync };
 }
 
-// Custom highly non-linear mapping for Rate parameter.
-// Visual 0-100:
-//   - First 70%: Rate from 1 to 10000 (high rates)
-//   - Last 30%:  Rate from 0.001 to 1 (critical low rates get lots of space)
-function rateMap(visual, visualMin, visualMax) {
-  const v = Math.max(0, Math.min(1, (visual - visualMin) / (visualMax - visualMin)));
-  const highRate = 10000;
-  const lowRate = 0.001;
-  const breakpoint = 1;
-  const lowFraction = 0.30;
-  const highVisual = 1 - lowFraction;
+// Custom highly non-linear mapping for Rate parameter (slow-evolution focused).
+// Visual 0 (left) = 0, Visual 100 (right) = 10000.
+// - Left ~40%: rate 0 → 1 (generous physical space for the very slow rates
+//   the user cares about, including exact 0). Strong power curve near zero.
+// - Right ~60%: rate 1 → 10000 using a log curve + mild power. This lets you
+//   reach useful values just above 1 (2, 3, 5, 8, 12...) "sooner" with modest
+//   rightward travel instead of a giant jump or having to traverse most of the slider.
+// The old 30%-on-the-right design created a huge discontinuity at the 1 boundary
+// (crossing it jumped straight to ~10000). This version is continuous and practical.
 
-  if (v <= highVisual) {
-    const t = v / highVisual;
-    const p = 1.8;
-    return breakpoint + (highRate - breakpoint) * Math.pow(t, p);
+function rateMap(visual, visualMin = 0, visualMax = 100) {
+  const v = Math.max(0, Math.min(1, (visual - visualMin) / (visualMax - visualMin)));
+  const lowRate = 0;
+  const breakpoint = 1;
+  const highRate = 10000;
+  const lowFraction = 0.40;
+  const lowP = 2.6;
+  const highP = 1.7;
+
+  if (v < lowFraction) {
+    // 0 → 1 zone (left portion). Power > 1 gives extra resolution near true zero.
+    const t = v / lowFraction;
+    return lowRate + (breakpoint - lowRate) * Math.pow(t, lowP);
   } else {
-    const t = (v - highVisual) / lowFraction;
-    const p = 4.5;
-    return lowRate + (breakpoint - lowRate) * Math.pow(Math.max(0, t), p);
+    // 1 → 10000 zone. Log spacing + extra power gives usable steps just above 1
+    // (you can reach 2, 5, 12 etc. without traveling far from the slow zone).
+    const t = (v - lowFraction) / (1 - lowFraction);
+    const logBP = Math.log(breakpoint);
+    const logHigh = Math.log(highRate);
+    const logR = logBP + (logHigh - logBP) * Math.pow(t, highP);
+    return Math.exp(logR);
   }
 }
 
-function rateUnmap(rate, visualMin, visualMax) {
-  const highRate = 10000;
-  const lowRate = 0.001;
+function rateUnmap(rate, visualMin = 0, visualMax = 100) {
+  const lowRate = 0;
   const breakpoint = 1;
-  const lowFraction = 0.30;
-  const highVisual = 1 - lowFraction;
+  const highRate = 10000;
+  const lowFraction = 0.40;
+  const lowP = 2.6;
+  const highP = 1.7;
+  const logBP = Math.log(breakpoint);
+  const logHigh = Math.log(highRate);
 
-  // Clamp and handle rate=0 or below lowRate gracefully (prevents NaN from negative base in pow)
-  rate = Math.max(lowRate, Math.min(highRate, rate || lowRate));
+  // Allow exact 0. Clamp only NaN / null.
+  let r = (rate == null || isNaN(rate)) ? 0 : rate;
+  r = Math.max(lowRate, Math.min(highRate, r));
 
-  if (rate >= breakpoint) {
-    const t = Math.pow((rate - breakpoint) / (highRate - breakpoint), 1 / 1.8);
-    return visualMin + Math.min(1, Math.max(0, t)) * highVisual * (visualMax - visualMin);
+  if (r <= breakpoint) {
+    // low / slow zone (includes exact 0)
+    const t = Math.pow(r / breakpoint, 1 / lowP);
+    return visualMin + t * lowFraction * (visualMax - visualMin);
   } else {
-    const ratio = (rate - lowRate) / (breakpoint - lowRate);
-    const t = Math.pow(Math.max(0, ratio), 1 / 4.5);
-    return visualMin + (highVisual + Math.min(1, Math.max(0, t)) * lowFraction) * (visualMax - visualMin);
+    // high zone
+    const logR = Math.log(r);
+    const tLin = (logR - logBP) / (logHigh - logBP);
+    const t = Math.pow(tLin, 1 / highP);
+    return visualMin + (lowFraction + t * (1 - lowFraction)) * (visualMax - visualMin);
   }
 }
 
@@ -302,12 +320,10 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
     }).element
   );
 
-  // Rate uses a visual proxy slider (0-100) mapped to model range 0-1 with power=2.6.
-  // This is what gives good fine control at the very low rates used in the slow-evolution default.
-  // Rate uses a custom piecewise mapping:
-  // - 70% of slider: 1 → 10000
-  // - 30% of slider: 0.001 → 1
-  // This gives plenty of fine control in the very low rate region the user cares about.
+  // Rate: custom piecewise + log mapping (see rateMap/rateUnmap above).
+  // Left ~40% for 0→1 (true zero + ultra-slow with fine control).
+  // Right ~60% for 1→10000 with log spacing so "slightly above 1" (2,5,12...)
+  // is reachable quickly without huge jumps or long travel.
   container.appendChild(
     createSlider({
       label: 'Rate',
@@ -315,7 +331,7 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
       setValue: v => { wave.rate = v; },
       visualMin: 0,
       visualMax: 100,
-      modelMin: 0.001,
+      modelMin: 0,
       modelMax: 10000,
       step: 0.05,
       map: rateMap,
