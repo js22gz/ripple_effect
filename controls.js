@@ -224,16 +224,16 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
   const container = document.createElement('div');
   container.className = 'wave-group';
 
-  // Frequency uses visual proxy 0-100 → 0-100000 with power 2.6.
-  // For very low real frequencies the unmapped visual position is tiny, so we
-  // give the thumb a small starting offset (see fullSync) so it isn't glued to 0.
+  // Frequency uses visual proxy 0-10000 → 0-100000 with power 2.6.
+  // Larger visual range gives low real frequencies (2.8 etc.) much more
+  // physical travel on the slider instead of living glued near 0.
   container.appendChild(
     createSlider({
       label: `Wave ${waveIndex + 1} · Frequency`,
       getValue: () => wave.frequency,
       setValue: v => { wave.frequency = v; },
       visualMin: 0,
-      visualMax: 100,
+      visualMax: 10000,
       modelMin: 0,
       modelMax: 100000,
       step: 0.1,
@@ -772,11 +772,11 @@ window.__ripplerTestSlider = function() {
   let value = 1234.5;
 
   const slider = createSlider({
-    label: 'Test Frequency (visual proxy)',
+    label: 'Test Frequency (visual 0-10000 → model 0-100k, power 2.6)',
     getValue: () => value,
     setValue: v => { value = v; },
     visualMin: 0,
-    visualMax: 100,
+    visualMax: 10000,
     modelMin: 0,
     modelMax: 100000,
     step: 0.1,
