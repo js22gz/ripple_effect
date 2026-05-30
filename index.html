@@ -533,10 +533,241 @@
       };
     }
 
+    // ============================================================
+    // PR 2: Core Parameter Primitives
+    // ============================================================
+    // These factories are the foundation for the future controls system.
+    // They are deliberately standalone so they can be developed and tested
+    // in isolation before being wired into the real UI.
+
+    /**
+     * Creates a high-precision slider control.
+     *
+     * Supports the strengthened contract required for visual-proxy ranges
+     * (especially frequency: 0-100 visual ↔ 0-100000 model with power curve).
+     *
+     * @param {Object} config
+     * @param {string} config.label
+     * @param {Function} config.getValue - () => current real model value
+     * @param {Function} config.setValue - (realValue) => void
+     * @param {number} [config.visualMin=0]
+     * @param {number} [config.visualMax=100]
+     * @param {number} config.modelMin
+     * @param {number} config.modelMax
+     * @param {number} [config.step=0.1]
+     * @param {number} [config.power=1] - if provided, uses canonical map/unmap
+     * @param {Function} [config.map]   - custom visual → model function
+     * @param {Function} [config.unmap] - custom model → visual function
+     * @param {number} [config.precision=2]
+     * @param {Function} [config.format] - (realValue) => display string
+     * @param {Function} [config.onChange] - called after setValue
+     * @returns {{element: HTMLElement, update: Function}}
+     */
+    function createSlider({
+      label,
+      getValue,
+      setValue,
+      visualMin = 0,
+      visualMax = 100,
+      modelMin,
+      modelMax,
+      step = 0.1,
+      power = null,
+      map = null,
+      unmap = null,
+      precision = 2,
+      format,
+      onChange,
+    }) {
+      const root = document.createElement('div');
+      root.className = 'slider-control';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'slider-label';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'label';
+      nameSpan.textContent = label;
+
+      const valueSpan = document.createElement('span');
+      valueSpan.className = 'slider-value';
+      valueSpan.style.fontVariantNumeric = 'tabular-nums';
+
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = visualMin;
+      input.max = visualMax;
+      input.step = step;
+
+      labelEl.appendChild(nameSpan);
+      labelEl.appendChild(valueSpan);
+      root.appendChild(labelEl);
+      root.appendChild(input);
+
+      // Determine mapping functions
+      const usePower = power != null && power !== 1;
+      const effectiveMap = map || (usePower
+        ? (v) => mapSlider(v, modelMin, modelMax, power)
+        : (v) => v);
+      const effectiveUnmap = unmap || (usePower
+        ? (v) => unmapSlider(v, modelMin, modelMax, power)
+        : (v) => v);
+
+      function sync() {
+        const real = getValue();
+        const visual = effectiveUnmap(real);
+        input.value = visual;
+
+        if (format) {
+          valueSpan.textContent = format(real);
+        } else {
+          valueSpan.textContent = real.toFixed(precision);
+        }
+      }
+
+      input.oninput = () => {
+        const visual = parseFloat(input.value);
+        const real = effectiveMap(visual);
+        setValue(real);
+        sync();
+        if (onChange) onChange(real);
+      };
+
+      // Initial sync
+      sync();
+
+      return {
+        element: root,
+        update: sync,
+        // Expose valueSpan for future numeric editing (PR7+)
+        valueSpan,
+      };
+    }
+
+    /**
+     * Simple checkbox primitive (for future use).
+     */
+    function createCheckbox({ label, getValue, setValue, onChange }) {
+      const wrapper = document.createElement('label');
+      wrapper.style.display = 'flex';
+      wrapper.style.alignItems = 'center';
+      wrapper.style.gap = '6px';
+      wrapper.style.cursor = 'pointer';
+      wrapper.style.fontSize = '10px';
+      wrapper.style.color = '#aaa';
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+
+      const text = document.createElement('span');
+      text.textContent = label;
+
+      wrapper.appendChild(input);
+      wrapper.appendChild(text);
+
+      function sync() {
+        input.checked = !!getValue();
+      }
+
+      input.onchange = () => {
+        setValue(input.checked);
+        if (onChange) onChange(input.checked);
+      };
+
+      sync();
+
+      return { element: wrapper, update: sync };
+    }
+
+    /**
+     * Simple select primitive (for future use).
+     */
+    function createSelect({ label, getValue, setValue, options, onChange }) {
+      const wrapper = document.createElement('div');
+      wrapper.style.marginBottom = '8px';
+
+      const labelEl = document.createElement('div');
+      labelEl.style.fontSize = '10px';
+      labelEl.style.color = '#888';
+      labelEl.textContent = label;
+
+      const select = document.createElement('select');
+      select.style.width = '100%';
+      select.style.background = '#2a2a33';
+      select.style.color = '#ccc';
+      select.style.border = '1px solid #555';
+      select.style.fontSize = '11px';
+      select.style.padding = '3px 4px';
+      select.style.borderRadius = '4px';
+
+      options.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.label;
+        select.appendChild(o);
+      });
+
+      wrapper.appendChild(labelEl);
+      wrapper.appendChild(select);
+
+      function sync() {
+        select.value = getValue();
+      }
+
+      select.onchange = () => {
+        setValue(select.value);
+        if (onChange) onChange(select.value);
+      };
+
+      sync();
+
+      return { element: wrapper, update: sync };
+    }
+
     // === Rippler Controls (Collection-based model) ===
 
     // Tracks "memory" of connectivity between ripples for fade-away effect
     const colorburstConnections = new Map();
+
+    // ============================================================
+    // PR 2: Temporary Test Harness
+    // ============================================================
+    // Expose a simple way to test the new primitives in the console
+    // without affecting the real UI. Run in console:
+    //   window.__ripplerTestSlider()
+    window.__ripplerTestSlider = function() {
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.bottom = '12px';
+      container.style.left = '12px';
+      container.style.background = 'rgba(20,22,28,0.95)';
+      container.style.border = '1px solid rgba(255,255,255,0.15)';
+      container.style.borderRadius = '6px';
+      container.style.padding = '10px 12px';
+      container.style.zIndex = '9999';
+      container.style.minWidth = '220px';
+
+      let value = 1234.5;
+
+      const slider = createSlider({
+        label: 'Test Frequency (visual proxy)',
+        getValue: () => value,
+        setValue: v => { value = v; },
+        visualMin: 0,
+        visualMax: 100,
+        modelMin: 0,
+        modelMax: 100000,
+        power: 2.6,
+        precision: 0,
+        onChange: v => console.log('[PR2 Test] value changed to', v),
+      });
+
+      container.appendChild(slider.element);
+      document.body.appendChild(container);
+
+      console.log('%c[PR2] Test slider mounted. Adjust it and watch the console.', 'color:#7ab8ff');
+      console.log('Call window.__ripplerTestSlider() again to create more instances.');
+    };
     let nextRippleId = 1;
 
     const DEFAULT_RIPPLE_COLORS = ['#7ab8ff', '#a8d4ff', '#ff9f7a', '#7affa8', '#d47aff', '#ffea7a'];
