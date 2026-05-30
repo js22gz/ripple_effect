@@ -553,7 +553,7 @@
     ];
 
     // Advance id generator so future ripples don't collide with the baked-in default
-    nextRippleId = 3;
+    let nextRippleId = 3;
 
     // Overall shape
     let SHAPE_HEIGHT = 520;
@@ -1146,7 +1146,11 @@
       }
 
       // === Collections + Controls ===
-      renderAllControls();
+      try {
+        renderAllControls();
+      } catch (err) {
+        console.error('[Rippler] Error during initial renderAllControls():', err);
+      }
 
       document.getElementById('load-btn').addEventListener('click', loadCollectionFromFile);
       document.getElementById('new-collection-btn').addEventListener('click', createNewCollection);
