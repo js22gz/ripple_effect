@@ -103,7 +103,16 @@ function createSlider({
 
   function fullSync() {
     const real = getValue();
-    const visual = effectiveUnmap(real);
+    let visual = effectiveUnmap(real);
+
+    // For power curves, very low real values produce visual positions extremely
+    // close to 0. Setting the native range to such a tiny value makes the thumb
+    // appear stuck at the left edge. Give it a tiny visible starting offset
+    // so the user can immediately see movement when they start dragging.
+    if (usePower && visual < 1) {
+      visual = 1;
+    }
+
     input.value = visual;
     updateDisplay();
   }
@@ -216,8 +225,8 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
   container.className = 'wave-group';
 
   // Frequency uses visual proxy 0-100 → 0-100000 with power 2.6.
-  // The slider now stays where the user drags it (no forced write-back of tiny
-  // unmapped values), so a normal step works well.
+  // For very low real frequencies the unmapped visual position is tiny, so we
+  // give the thumb a small starting offset (see fullSync) so it isn't glued to 0.
   container.appendChild(
     createSlider({
       label: `Wave ${waveIndex + 1} · Frequency`,
