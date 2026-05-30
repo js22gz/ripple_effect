@@ -1347,6 +1347,110 @@
       console.log('%c[PR 2] Test panel mounted. Tweak the sliders and watch the console for real model values.', 'color:#7ab8ff');
       console.log('You can call window.__ripplerTestSlider() multiple times.');
     };
+
+    // ============================================================
+    // PR 4 Test: Full Collection UI (using new components)
+    // ============================================================
+    // Run: window.__ripplerTestCollectionUI()
+    window.__ripplerTestCollectionUI = function() {
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.top = '12px';
+      container.style.left = '12px';
+      container.style.background = 'rgba(20,22,28,0.95)';
+      container.style.border = '1px solid rgba(255,255,255,0.2)';
+      container.style.borderRadius = '6px';
+      container.style.padding = '12px';
+      container.style.zIndex = '9999';
+      container.style.minWidth = '320px';
+      container.style.maxHeight = '80vh';
+      container.style.overflowY = 'auto';
+
+      const title = document.createElement('div');
+      title.textContent = 'PR 4 Test — Collection UI';
+      title.style.fontSize = '11px';
+      title.style.fontWeight = '600';
+      title.style.color = '#7ab8ff';
+      title.style.marginBottom = '10px';
+      container.appendChild(title);
+
+      // Create a demo collection based on current data model
+      const demoCollection = {
+        id: 'test-col',
+        name: 'Test Collection',
+        expanded: true,
+        colorburstIntensity: 1.0,
+        ripples: [
+          {
+            id: 99,
+            name: 'Left',
+            enabled: true,
+            expanded: true,
+            color: '#c800ff',
+            waves: [
+              { frequency: 2.8, amplitude: 38, rate: 0 },
+              { frequency: 5.6, amplitude: 17, rate: 0.0077 },
+              { frequency: 9.3, amplitude: 21, rate: 0.0146 }
+            ]
+          },
+          {
+            id: 100,
+            name: 'Right',
+            enabled: true,
+            expanded: false,
+            color: '#003870',
+            waves: [
+              { frequency: 3.1, amplitude: 41, rate: 0.0114 },
+              { frequency: 4.9, amplitude: 19, rate: 0.0310 },
+              { frequency: 8.7, amplitude: 7.5, rate: 0.0255 }
+            ]
+          }
+        ]
+      };
+
+      const panel = createCollectionPanel(
+        demoCollection,
+        0,
+        () => console.log('[PR4 Test] requestDraw called'),
+        () => {
+          console.log('[PR4 Test] Delete collection');
+          container.remove();
+        },
+        (colIdx) => {
+          console.log('[PR4 Test] Save collection', demoCollection);
+          alert('Save clicked! (demo)');
+        },
+        () => {
+          // Add a new ripple
+          demoCollection.ripples.push({
+            id: Date.now(),
+            name: 'New Ripple',
+            enabled: true,
+            expanded: true,
+            color: '#7affa8',
+            waves: [
+              { frequency: 2.5, amplitude: 30, rate: 0.02 }
+            ]
+          });
+          // Re-render the whole panel (simple approach for demo)
+          container.innerHTML = '';
+          container.appendChild(title);
+          const newPanel = createCollectionPanel(
+            demoCollection, 0,
+            () => console.log('[PR4 Test] requestDraw called'),
+            () => container.remove(),
+            () => alert('Save clicked! (demo)'),
+            arguments.callee // recursive for demo
+          );
+          container.appendChild(newPanel);
+        }
+      );
+
+      container.appendChild(panel);
+      document.body.appendChild(container);
+
+      console.log('%c[PR 4] Full collection UI test mounted. Try expand/collapse, add, delete.', 'color:#7ab8ff');
+    };
     let nextRippleId = 1;
 
     const DEFAULT_RIPPLE_COLORS = ['#7ab8ff', '#a8d4ff', '#ff9f7a', '#7affa8', '#d47aff', '#ffea7a'];
