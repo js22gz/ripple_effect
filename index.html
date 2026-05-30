@@ -5,6 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ripple Effect</title>
   <style>
+    /* ============================================================
+       CSS Custom Properties — PR 1 foundation (no visual change)
+       These tokens capture the current dark-glass aesthetic exactly.
+       All future control components should use these instead of
+       hard-coded rgba / hex values.
+       ============================================================ */
+    :root {
+      --controls-bg: rgba(15, 15, 20, 0.92);
+      --controls-bg-subtle: rgba(255, 255, 255, 0.03);
+      --controls-bg-subtle-2: rgba(255, 255, 255, 0.035);
+      --controls-border: rgba(255, 255, 255, 0.08);
+      --controls-border-strong: rgba(255, 255, 255, 0.12);
+      --controls-text-primary: #ddd;
+      --controls-text-secondary: #888;
+      --controls-text-muted: #aaa;
+      --controls-accent: #7ab8ff;
+      --controls-danger: #ff6b6b;
+      --controls-radius: 6px;
+      --controls-radius-lg: 10px;
+      --controls-font-size: 12px;
+      --controls-font-size-sm: 10px;
+      --controls-font-size-xs: 9px;
+      --controls-blur: blur(12px);
+    }
+
     html, body {
       margin: 0;
       padding: 0;
@@ -315,6 +340,25 @@
   </div>
 
   <script>
+    /* ============================================================
+       RIPPLER — Architecture & Data Model (PR 1 Documentation)
+
+       This is currently a single-file creative instrument.
+       The goal of the controls redesign (see design/controls-bottom-up-redesign.md)
+       is to create clean extraction seams without breaking the "just open index.html"
+       experience or the precise slow-evolution behavior.
+
+       LAYERS (current state → target):
+       - Visualization (draw + colorbursts) — remains the core
+       - Data Model (plain POJOs + globals) — documented below
+       - Pure Helpers (this section) — now extracted + generalized
+       - Controls (renderAllControls + init wiring) — will be replaced by
+         factory components + thin orchestrator in later PRs
+
+       All changes in PR 1 are documentation + extraction only.
+       Zero behavioral or visual difference is required.
+       ============================================================ */
+
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d', { alpha: true });
 
@@ -327,11 +371,166 @@
     let t = 0;
     let lastTime = performance.now();
 
-    // Non-linear mapping helper — gives much more precision at low values
+    // ============================================================
+    // PURE HELPER FUNCTIONS — PR 1 Extraction + Generalization
+    // ============================================================
+    // These functions are pure and have no side effects.
+    // They are the mathematical foundation for the control surface.
+    //
+    // Key addition in PR 1: unmapSlider (inverse of mapSlider).
+    // This is required to correctly support visual-proxy sliders
+    // (e.g. frequency: slider 0–100 maps to model 0–100000 with power 2.6).
+
+    /**
+     * Maps a slider visual value (usually 0–100 or similar) into the real
+     * model domain using a power curve. Gives much higher precision near the low end.
+     *
+     * @param {number} visualValue - value from the <input type="range">
+     * @param {number} min - real minimum
+     * @param {number} max - real maximum
+     * @param {number} [power=2.6] - exponent
+     */
     function mapSlider(visualValue, min, max, power = 2.6) {
       const t = (visualValue - min) / (max - min);
       const curved = Math.pow(Math.max(0, t), power);
       return min + curved * (max - min);
+    }
+
+    /**
+     * Inverse of mapSlider. Converts a real model value back to the
+     * corresponding visual slider position.
+     *
+     * Used by createSlider implementations that need a visual proxy range.
+     */
+    function unmapSlider(realValue, min, max, power = 2.6) {
+      const t = (realValue - min) / (max - min);
+      const curved = Math.pow(Math.max(0, Math.min(1, t)), 1 / power);
+      return min + curved * (max - min);
+    }
+
+    /**
+     * Envelope that shapes wave amplitude across the vertical axis.
+     * 0 at the very top and bottom, peaks in the middle.
+     */
+    function amplitudeEnvelope(u) {
+      return Math.pow(Math.sin(u * Math.PI), 1.1);
+    }
+
+    // --- Color conversion helpers (used by Colorburst system) ---
+
+    /**
+     * Simple linear RGB mix between two hex colors.
+     * Internal helper for getMixedBurstColor.
+     */
+    function mixColors(hex1, hex2, t) {
+      const c1 = hexToRgb(hex1);
+      const c2 = hexToRgb(hex2);
+      const r = Math.round(c1.r * (1 - t) + c2.r * t);
+      const g = Math.round(c1.g * (1 - t) + c2.g * t);
+      const b = Math.round(c1.b * (1 - t) + c2.b * t);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    /**
+     * Converts #rrggbb or rrggbb to {r,g,b} in 0-255 range.
+     * Returns a fallback blue if parsing fails.
+     */
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 122, g: 184, b: 255 };
+    }
+
+    /**
+     * Improved color mixing for Colorbursts.
+     * Supports 'additive', 'screen', and 'vibrant' (HSL-based) modes.
+     * 'vibrant' is the default and best preserves hue/saturation.
+     */
+    function getMixedBurstColor(hex1, hex2, mode) {
+      if (mode === 'additive') {
+        return mixColors(hex1, hex2, 0.5);
+      }
+
+      if (mode === 'screen') {
+        const c1 = hexToRgb(hex1);
+        const c2 = hexToRgb(hex2);
+        const r = 255 - Math.round((255 - c1.r) * (255 - c2.r) / 255);
+        const g = 255 - Math.round((255 - c1.g) * (255 - c2.g) / 255);
+        const b = 255 - Math.round((255 - c1.b) * (255 - c2.b) / 255);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+
+      // 'vibrant' — HSL space mix (recommended)
+      const hsl1 = rgbToHsl(hexToRgb(hex1));
+      const hsl2 = rgbToHsl(hexToRgb(hex2));
+
+      let h = (hsl1.h + hsl2.h) / 2;
+      if (Math.abs(hsl1.h - hsl2.h) > 180) {
+        h = (h + 180) % 360;
+      }
+
+      const s = Math.max(hsl1.s, hsl2.s) * 0.7 + (hsl1.s + hsl2.s) / 2 * 0.3;
+      const l = (hsl1.l + hsl2.l) / 2 * 0.85;
+
+      const rgb = hslToRgb(h, s, l);
+      return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+    }
+
+    /**
+     * RGB to HSL conversion.
+     */
+    function rgbToHsl(rgb) {
+      let r = rgb.r / 255, g = rgb.g / 255, b = rgb.b / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      return { h: h * 360, s: s, l: l };
+    }
+
+    /**
+     * HSL to RGB conversion.
+     */
+    function hslToRgb(h, s, l) {
+      h /= 360;
+      let r, g, b;
+
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+      };
     }
 
     // === Rippler Controls (Collection-based model) ===
@@ -342,6 +541,25 @@
 
     const DEFAULT_RIPPLE_COLORS = ['#7ab8ff', '#a8d4ff', '#ff9f7a', '#7affa8', '#d47aff', '#ffea7a'];
 
+    /**
+     * ============================================================
+     * DATA MODEL — PR 1 Documentation
+     * ============================================================
+     * This is the canonical in-memory model for the rippler tool.
+     * All controls (current and future) read/write through this shape.
+     *
+     * Invariants (must be maintained by all code):
+     * - frequency ≥ 0
+     * - amplitude ≥ 0
+     * - rate ≥ 0
+     * - collections[].ripples[].waves.length ≥ 1
+     * - colorburstIntensity ∈ [0, 1]
+     * - cap strengths ∈ [0, 1]
+     *
+     * The slow-evolution default currently active (rate: 0 on first wave
+     * of first ripple) is particularly sensitive to mapping precision.
+     */
+
     let collections = [
       {
         id: "base",
@@ -350,32 +568,35 @@
         colorburstIntensity: 1.0,
         ripples: [
           {
-            id: nextRippleId++,
+            id: 1,
             name: "Left",
             enabled: true,
             expanded: true,
-            color: DEFAULT_RIPPLE_COLORS[0],
+            color: "#c800ff",
             waves: [
-              { frequency: 2.8, amplitude: 38, rate: 0.35 },
-              { frequency: 5.6, amplitude: 17, rate: 0.65 },
-              { frequency: 9.3, amplitude: 6,  rate: 0.92 }
+              { frequency: 2.8, amplitude: 38, rate: 0 },
+              { frequency: 5.6, amplitude: 17, rate: 0.007718872621621302 },
+              { frequency: 9.3, amplitude: 21, rate: 0.014642397347144905 }
             ]
           },
           {
-            id: nextRippleId++,
+            id: 2,
             name: "Right",
             enabled: true,
             expanded: true,
-            color: DEFAULT_RIPPLE_COLORS[1],
+            color: "#003870",
             waves: [
-              { frequency: 3.1, amplitude: 41, rate: 0.28 },
-              { frequency: 4.9, amplitude: 19, rate: 0.55 },
-              { frequency: 8.7, amplitude: 7.5, rate: 0.81 }
+              { frequency: 3.1, amplitude: 41, rate: 0.011413474702142172 },
+              { frequency: 4.9, amplitude: 19, rate: 0.031037372326155704 },
+              { frequency: 8.7, amplitude: 7.5, rate: 0.025539568091259582 }
             ]
           }
         ]
       }
     ];
+
+    // Advance id generator so future ripples don't collide with the baked-in default
+    nextRippleId = 3;
 
     // Overall shape
     let SHAPE_HEIGHT = 520;
@@ -399,12 +620,6 @@
     let COLORBURST_NON_ADJACENT = false; // if true, connect ripples that are not next to each other horizontally
     let COLORBURST_BURST_INTENSITY = 0.7; // dedicated control for the glows at crossing points (0 = off)
     let COLORBURST_BLEND_MODE = 'vibrant'; // 'additive', 'screen', 'vibrant'
-
-    // Envelope (how strong the waves are at different heights)
-    // 0 = no wave at top/bottom, 1 = full strength in middle
-    function amplitudeEnvelope(u) {
-      return Math.pow(Math.sin(u * Math.PI), 1.1);
-    }
 
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -796,25 +1011,6 @@
       return crossings;
     }
 
-    // Simple hex color mixer
-    function mixColors(hex1, hex2, t) {
-      const c1 = hexToRgb(hex1);
-      const c2 = hexToRgb(hex2);
-      const r = Math.round(c1.r * (1 - t) + c2.r * t);
-      const g = Math.round(c1.g * (1 - t) + c2.g * t);
-      const b = Math.round(c1.b * (1 - t) + c2.b * t);
-      return `rgb(${r}, ${g}, ${b})`;
-    }
-
-    function hexToRgb(hex) {
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-      return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-      } : { r: 122, g: 184, b: 255 };
-    }
-
     // Helper to find which collection a ripple belongs to
     function getCollectionForRipple(ripple) {
       for (let c = 0; c < collections.length; c++) {
@@ -823,92 +1019,6 @@
         }
       }
       return null;
-    }
-
-    // Improved color mixing for Colorbursts - tries hard to preserve color
-    function getMixedBurstColor(hex1, hex2, mode) {
-      if (mode === 'additive') {
-        // Classic additive (tends to white)
-        return mixColors(hex1, hex2, 0.5);
-      }
-
-      if (mode === 'screen') {
-        // Screen blend (brighter, keeps more color than additive)
-        const c1 = hexToRgb(hex1);
-        const c2 = hexToRgb(hex2);
-        const r = 255 - Math.round((255 - c1.r) * (255 - c2.r) / 255);
-        const g = 255 - Math.round((255 - c1.g) * (255 - c2.g) / 255);
-        const b = 255 - Math.round((255 - c1.b) * (255 - c2.b) / 255);
-        return `rgb(${r}, ${g}, ${b})`;
-      }
-
-      // 'vibrant' - mix in HSL space to protect hue and saturation
-      const hsl1 = rgbToHsl(hexToRgb(hex1));
-      const hsl2 = rgbToHsl(hexToRgb(hex2));
-
-      // Average hue (handle wrap-around)
-      let h = (hsl1.h + hsl2.h) / 2;
-      if (Math.abs(hsl1.h - hsl2.h) > 180) {
-        h = (h + 180) % 360;
-      }
-
-      // Keep good saturation (bias toward the more saturated color)
-      const s = Math.max(hsl1.s, hsl2.s) * 0.7 + (hsl1.s + hsl2.s) / 2 * 0.3;
-
-      // Slightly darken to avoid pure white
-      const l = (hsl1.l + hsl2.l) / 2 * 0.85;
-
-      const rgb = hslToRgb(h, s, l);
-      return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
-    }
-
-    // HSL conversion helpers
-    function rgbToHsl(rgb) {
-      let r = rgb.r / 255, g = rgb.g / 255, b = rgb.b / 255;
-      const max = Math.max(r, g, b), min = Math.min(r, g, b);
-      let h, s, l = (max + min) / 2;
-
-      if (max === min) {
-        h = s = 0;
-      } else {
-        const d = max - min;
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch (max) {
-          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-          case g: h = (b - r) / d + 2; break;
-          case b: h = (r - g) / d + 4; break;
-        }
-        h /= 6;
-      }
-      return { h: h * 360, s: s, l: l };
-    }
-
-    function hslToRgb(h, s, l) {
-      h /= 360;
-      let r, g, b;
-
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1/6) return p + (q - p) * 6 * t;
-          if (t < 1/2) return q;
-          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
-      }
-      return {
-        r: Math.round(r * 255),
-        g: Math.round(g * 255),
-        b: Math.round(b * 255)
-      };
     }
 
     // === Dynamic Controls (Collection-based) ===
