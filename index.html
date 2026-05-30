@@ -1972,248 +1972,53 @@
     }
 
     // === Dynamic Controls (Collection-based) ===
-    function renderAllControls() {
-      const container = document.getElementById('ripples-container');
+    /**
+     * New orchestrator (PR 5 start): Mounts the collection UI using the
+     * component-based system.
+     */
+    function mountCollections(container, collections, requestDraw) {
       container.innerHTML = '';
 
       collections.forEach((collection, colIndex) => {
-        const colDiv = document.createElement('div');
-        colDiv.className = 'collection';
-        // Uses .collection class styles
-
-        // Collection Header
-        const colHeader = document.createElement('div');
-        colHeader.style.display = 'flex';
-        colHeader.style.alignItems = 'center';
-        colHeader.style.gap = '8px';
-        colHeader.style.marginBottom = '8px';
-
-        // Collection-level expand/collapse toggle
-        const colToggle = document.createElement('button');
-        colToggle.className = 'expand-toggle';
-        colToggle.textContent = (collection.expanded !== false) ? '▼' : '▶';
-        colToggle.title = 'Toggle collection';
-        colToggle.onclick = () => {
-          collection.expanded = !(collection.expanded !== false);
-          renderAllControls();
-        };
-
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.value = collection.name;
-        nameInput.style.flex = '1';
-        nameInput.style.background = 'transparent';
-        nameInput.style.border = '1px solid #444';
-        nameInput.style.color = '#ddd';
-        nameInput.style.padding = '4px 6px';
-        nameInput.style.fontSize = '11px';
-        nameInput.onchange = () => {
-          collection.name = nameInput.value.trim() || 'Untitled';
-        };
-
-        const saveBtn = document.createElement('button');
-        saveBtn.textContent = 'Save';
-        saveBtn.style.fontSize = '10px';
-        saveBtn.style.padding = '3px 8px';
-        saveBtn.onclick = () => saveCollection(colIndex);
-
-        const deleteColBtn = document.createElement('button');
-        deleteColBtn.textContent = '×';
-        deleteColBtn.style.fontSize = '14px';
-        deleteColBtn.style.padding = '2px 6px';
-        deleteColBtn.style.color = '#ff6b6b';
-        deleteColBtn.onclick = () => {
-          collections.splice(colIndex, 1);
-          renderAllControls();
-          draw();
-        };
-
-        colHeader.appendChild(colToggle);
-        colHeader.appendChild(nameInput);
-
-        // Per-collection Colorburst intensity (compact)
-        const burstLabel = document.createElement('span');
-        burstLabel.textContent = 'B';
-        burstLabel.style.fontSize = '9px';
-        burstLabel.style.color = '#888';
-        burstLabel.style.marginLeft = '4px';
-
-        const burstSlider = document.createElement('input');
-        burstSlider.type = 'range';
-        burstSlider.min = '0';
-        burstSlider.max = '1';
-        burstSlider.step = '0.05';
-        burstSlider.value = collection.colorburstIntensity ?? 1.0;
-        burstSlider.style.width = '60px';
-        burstSlider.style.height = '14px';
-        burstSlider.style.accentColor = '#7ab8ff';
-        burstSlider.oninput = () => {
-          collection.colorburstIntensity = parseFloat(burstSlider.value);
-          draw();
-        };
-
-        colHeader.appendChild(burstLabel);
-        colHeader.appendChild(burstSlider);
-
-        colHeader.appendChild(saveBtn);
-        colHeader.appendChild(deleteColBtn);
-
-        colDiv.appendChild(colHeader);
-
-        // Content wrapper (hidden when collection is collapsed)
-        const colContent = document.createElement('div');
-        if (collection.expanded === false) {
-          colContent.style.display = 'none';
-        }
-
-        // Render ripples inside this collection
-        collection.ripples.forEach((ripple, rippleIndex) => {
-          const rippleDiv = document.createElement('div');
-          rippleDiv.className = 'ripple';
-          rippleDiv.style.marginBottom = '6px';
-
-          const header = document.createElement('div');
-          header.className = 'ripple-header';
-          header.style.display = 'flex';
-          header.style.alignItems = 'center';
-          header.style.gap = '6px';
-
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.checked = ripple.enabled !== false;
-          checkbox.onchange = () => {
-            ripple.enabled = checkbox.checked;
-            draw();
-          };
-
-          const title = document.createElement('h4');
-          title.textContent = ripple.name;
-          title.style.flex = '1';
-          title.style.minWidth = '0';
-          title.style.overflow = 'hidden';
-          title.style.textOverflow = 'ellipsis';
-          title.style.whiteSpace = 'nowrap';
-
-          // Color picker - always visible even when ripple is collapsed
-          const colorInput = document.createElement('input');
-          colorInput.type = 'color';
-          colorInput.value = ripple.color || '#7ab8ff';
-          colorInput.title = 'Ripple color';
-          colorInput.oninput = () => {
-            ripple.color = colorInput.value;
-            draw();
-          };
-
-          const expandBtn = document.createElement('button');
-          expandBtn.className = 'expand-toggle';
-          expandBtn.textContent = (ripple.expanded !== false) ? '▼' : '▶';
-          expandBtn.onclick = () => {
-            ripple.expanded = !(ripple.expanded !== false);
-            renderAllControls();
-          };
-
-          const delBtn = document.createElement('button');
-          delBtn.className = 'delete-btn';
-          delBtn.textContent = '×';
-          delBtn.onclick = () => {
-            collection.ripples.splice(rippleIndex, 1);
-            renderAllControls();
-            draw();
-          };
-
-          header.appendChild(checkbox);
-          header.appendChild(title);
-          header.appendChild(colorInput);
-          header.appendChild(expandBtn);
-          header.appendChild(delBtn);
-
-          rippleDiv.appendChild(header);
-
-          const controls = document.createElement('div');
-          controls.className = 'ripple-controls';
-          if (ripple.expanded === false) {
-            controls.style.display = 'none';
+        const panel = createCollectionPanel(
+          collection,
+          colIndex,
+          requestDraw,
+          () => {
+            // Delete collection
+            collections.splice(colIndex, 1);
+            mountCollections(container, collections, requestDraw);
+            requestDraw();
+          },
+          (idx) => {
+            // Save collection
+            saveCollection(idx);
+          },
+          () => {
+            // Add ripple
+            const lastRipple = collection.ripples[collection.ripples.length - 1];
+            const colorIndex = collection.ripples.length % DEFAULT_RIPPLE_COLORS.length;
+            const newRipple = {
+              id: nextRippleId++,
+              name: `Ripple ${collection.ripples.length + 1}`,
+              enabled: true,
+              expanded: true,
+              color: DEFAULT_RIPPLE_COLORS[colorIndex],
+              waves: lastRipple ? lastRipple.waves.map(w => ({ ...w })) : [
+                { frequency: 3, amplitude: 30, rate: 0.4 }
+              ]
+            };
+            collection.ripples.push(newRipple);
+            mountCollections(container, collections, requestDraw);
           }
-
-          ripple.waves.forEach((wave, waveIndex) => {
-            const group = document.createElement('div');
-            group.className = 'wave-group';
-
-            const freqVisual = Math.pow(wave.frequency / 100000, 1 / 2.6) * 100;
-            const rateVisual = Math.pow(wave.rate / 1, 1 / 2.6);
-
-            group.innerHTML = `
-              <div class="slider-control">
-                <div class="slider-label">
-                  <span class="label">Wave ${waveIndex + 1} · Frequency</span>
-                  <span class="slider-value freq-value" id="col${colIndex}-r${rippleIndex}-w${waveIndex}-freq" title="Click to enter exact frequency (0-100000)">${wave.frequency.toFixed(2)}</span>
-                </div>
-                <input type="range" min="0" max="100" step="0.1" value="${freqVisual}">
-              </div>
-
-              <div class="slider-control">
-                <div class="slider-label">
-                  <span class="label">Amplitude</span>
-                  <span class="slider-value" id="col${colIndex}-r${rippleIndex}-w${waveIndex}-amp">${wave.amplitude.toFixed(1)}</span>
-                </div>
-                <input type="range" min="0" max="90" step="0.5" value="${wave.amplitude}">
-              </div>
-
-              <div class="slider-control">
-                <div class="slider-label">
-                  <span class="label">Rate</span>
-                  <span class="slider-value" id="col${colIndex}-r${rippleIndex}-w${waveIndex}-rate">${wave.rate.toFixed(2)}</span>
-                </div>
-                <input type="range" min="0" max="1" step="0.001" value="${rateVisual}">
-              </div>
-            `;
-
-            controls.appendChild(group);
-
-            const inputs = group.querySelectorAll('input');
-
-            inputs[0].oninput = (e) => {
-              const visual = parseFloat(e.target.value); // slider 0-100
-              const t = visual / 100;
-              const curved = Math.pow(Math.max(0, t), 2.6);
-              wave.frequency = curved * 100000;
-              document.getElementById(`col${colIndex}-r${rippleIndex}-w${waveIndex}-freq`).textContent = wave.frequency.toFixed(2);
-              draw();
-            };
-            inputs[1].oninput = (e) => {
-              wave.amplitude = parseFloat(e.target.value);
-              document.getElementById(`col${colIndex}-r${rippleIndex}-w${waveIndex}-amp`).textContent = wave.amplitude.toFixed(1);
-            };
-            inputs[2].oninput = (e) => {
-              const visual = parseFloat(e.target.value);
-              wave.rate = Math.max(0, Math.min(1, mapSlider(visual, 0, 1, 2.6)));
-              document.getElementById(`col${colIndex}-r${rippleIndex}-w${waveIndex}-rate`).textContent = wave.rate.toFixed(2);
-            };
-          });
-
-          rippleDiv.appendChild(controls);
-          colContent.appendChild(rippleDiv);
-        });
-
-        // + Add Ripple button inside this collection
-        const addBtn = document.createElement('button');
-        addBtn.textContent = '+ Add Ripple';
-        addBtn.style.width = '100%';
-        addBtn.style.marginTop = '6px';
-        addBtn.style.padding = '4px';
-        addBtn.style.fontSize = '11px';
-        addBtn.style.background = '#2a2a33';
-        addBtn.style.border = '1px solid #555';
-        addBtn.style.color = '#ccc';
-        addBtn.style.borderRadius = '4px';
-        addBtn.style.cursor = 'pointer';
-        addBtn.onclick = () => addNewRippleToCollection(colIndex);
-
-        colContent.appendChild(addBtn);
-
-        colDiv.appendChild(colContent);
-        container.appendChild(colDiv);
+        );
+        container.appendChild(panel);
       });
+    }
+
+    function renderAllControls() {
+      const container = document.getElementById('ripples-container');
+      mountCollections(container, collections, draw);
     }
 
     function addNewRippleToCollection(colIndex) {
