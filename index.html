@@ -603,6 +603,133 @@
     const colorburstConnections = new Map();
 
     // ============================================================
+    // PR 4 (start): Dynamic Ripple/Wave Components
+    // ============================================================
+    // These are developed in isolation first (like the globals panel).
+    // They will later replace the body of renderAllControls().
+
+    /**
+     * Creates the editor for a single wave (Frequency, Amplitude, Rate).
+     */
+    function createWaveEditor(ripple, waveIndex, requestDraw) {
+      const wave = ripple.waves[waveIndex];
+      const container = document.createElement('div');
+      container.className = 'wave-group';
+
+      // Frequency (visual proxy 0-100 → 0-100000, power 2.6)
+      container.appendChild(
+        createSlider({
+          label: `Wave ${waveIndex + 1} · Frequency`,
+          getValue: () => wave.frequency,
+          setValue: v => { wave.frequency = v; },
+          visualMin: 0,
+          visualMax: 100,
+          modelMin: 0,
+          modelMax: 100000,
+          step: 0.1,
+          power: 2.6,
+          precision: 2,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      // Amplitude (linear)
+      container.appendChild(
+        createSlider({
+          label: 'Amplitude',
+          getValue: () => wave.amplitude,
+          setValue: v => { wave.amplitude = v; },
+          visualMin: 0,
+          visualMax: 90,
+          modelMin: 0,
+          modelMax: 90,
+          step: 0.5,
+          power: 1,
+          precision: 1,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      // Rate (very low values, power 2.6)
+      container.appendChild(
+        createSlider({
+          label: 'Rate',
+          getValue: () => wave.rate,
+          setValue: v => { wave.rate = v; },
+          visualMin: 0,
+          visualMax: 1,
+          modelMin: 0,
+          modelMax: 1,
+          step: 0.001,
+          power: 2.6,
+          precision: 4,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      return container;
+    }
+
+    /**
+     * Creates the full card for one ripple (header + waves).
+     * This is the main building block for the dynamic part.
+     */
+    function createRippleCard(collection, rippleIndex, requestDraw) {
+      const ripple = collection.ripples[rippleIndex];
+      const card = document.createElement('div');
+      card.className = 'ripple';
+
+      // Header (simplified version of old header for now)
+      const header = document.createElement('div');
+      header.className = 'ripple-header';
+      header.style.display = 'flex';
+      header.style.alignItems = 'center';
+      header.style.gap = '6px';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = ripple.enabled !== false;
+      checkbox.onchange = () => {
+        ripple.enabled = checkbox.checked;
+        requestDraw();
+      };
+
+      const title = document.createElement('h4');
+      title.textContent = ripple.name;
+      title.style.flex = '1';
+      title.style.margin = '0';
+      title.style.fontSize = '11px';
+      title.style.color = '#aaa';
+
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.value = ripple.color || '#7ab8ff';
+      colorInput.oninput = () => {
+        ripple.color = colorInput.value;
+        requestDraw();
+      };
+
+      header.appendChild(checkbox);
+      header.appendChild(title);
+      header.appendChild(colorInput);
+
+      card.appendChild(header);
+
+      // Waves
+      const wavesContainer = document.createElement('div');
+      wavesContainer.className = 'ripple-controls';
+
+      ripple.waves.forEach((_, wi) => {
+        const waveEditor = createWaveEditor(ripple, wi, requestDraw);
+        wavesContainer.appendChild(waveEditor);
+      });
+
+      card.appendChild(wavesContainer);
+
+      return card;
+    }
+
+    // ============================================================
     // PR 3: Globals Panel using new primitives
     // ============================================================
     /**
