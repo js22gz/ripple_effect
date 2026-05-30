@@ -220,7 +220,7 @@ function createSelect({ label, getValue, setValue, options, onChange }) {
 //   - First 70%: Rate from 1 to 10000 (high rates)
 //   - Last 30%:  Rate from 0.001 to 1 (critical low rates get lots of space)
 function rateMap(visual, visualMin, visualMax) {
-  const v = (visual - visualMin) / (visualMax - visualMin); // 0..1
+  const v = Math.max(0, Math.min(1, (visual - visualMin) / (visualMax - visualMin)));
   const highRate = 10000;
   const lowRate = 0.001;
   const breakpoint = 1;
@@ -229,12 +229,12 @@ function rateMap(visual, visualMin, visualMax) {
 
   if (v <= highVisual) {
     const t = v / highVisual;
-    const p = 1.8; // moderate curve for high rates
+    const p = 1.8;
     return breakpoint + (highRate - breakpoint) * Math.pow(t, p);
   } else {
     const t = (v - highVisual) / lowFraction;
-    const p = 4.5; // strong curve → very low rates get a lot of visual space
-    return lowRate + (breakpoint - lowRate) * Math.pow(t, p);
+    const p = 4.5;
+    return lowRate + (breakpoint - lowRate) * Math.pow(Math.max(0, t), p);
   }
 }
 
@@ -245,12 +245,16 @@ function rateUnmap(rate, visualMin, visualMax) {
   const lowFraction = 0.30;
   const highVisual = 1 - lowFraction;
 
+  // Clamp and handle rate=0 or below lowRate gracefully (prevents NaN from negative base in pow)
+  rate = Math.max(lowRate, Math.min(highRate, rate || lowRate));
+
   if (rate >= breakpoint) {
     const t = Math.pow((rate - breakpoint) / (highRate - breakpoint), 1 / 1.8);
-    return visualMin + t * highVisual * (visualMax - visualMin);
+    return visualMin + Math.min(1, Math.max(0, t)) * highVisual * (visualMax - visualMin);
   } else {
-    const t = Math.pow((rate - lowRate) / (breakpoint - lowRate), 1 / 4.5);
-    return visualMin + (highVisual + t * lowFraction) * (visualMax - visualMin);
+    const ratio = (rate - lowRate) / (breakpoint - lowRate);
+    const t = Math.pow(Math.max(0, ratio), 1 / 4.5);
+    return visualMin + (highVisual + Math.min(1, Math.max(0, t)) * lowFraction) * (visualMax - visualMin);
   }
 }
 
