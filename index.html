@@ -532,6 +532,9 @@
     let COLORBURST_BURST_INTENSITY = 0.7; // dedicated control for the glows at crossing points (0 = off)
     let COLORBURST_BLEND_MODE = 'vibrant'; // 'additive', 'screen', 'vibrant'
 
+    // State for the colorburst memory system (fade + reinforcement between ripples)
+    const colorburstConnections = new Map();
+
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       width = window.innerWidth;
