@@ -301,33 +301,21 @@
 
   <script>
     /* ============================================================
-       RIPPLER — Architecture & Data Model (PR 1 Documentation)
+       RIPPLER — Main Application Script
 
-       This is currently a single-file creative instrument.
-       The goal of the controls redesign (see design/controls-bottom-up-redesign.md)
-       is to create clean extraction seams without breaking the "just open index.html"
-       experience or the precise slow-evolution behavior.
+       This file now contains:
+       - The data model (collections + global parameters)
+       - The visualization engine (canvas draw logic)
+       - Host wiring (init, loop, button handlers)
 
-       LAYERS (current state):
-       - Visualization (draw + colorbursts) — core engine
-       - Data Model (plain POJOs + globals) — documented below
-       - Pure Helpers — extracted and generalized (PR 1)
-       - Controls — now component-based:
-           * Globals: createGlobalsPanel (PR 3)
-           * Dynamic: createCollectionPanel → createRippleCard → createWaveEditor (PR 4+5)
-         Orchestrated via mountCollections / thin renderAllControls
-
-       The old imperative control code has been largely replaced.
+       The control system has been extracted to controls.js.
        ============================================================ */
 
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d', { alpha: true });
 
-    // Load the extracted controls system.
-    // controls.js must be loaded after the data model globals are declared
-    // but it defines its own functions in global scope.
-    // For a true single-file experience you can also inline it.
-    // <script src="controls.js"></script> is added in the HTML below.
+    // Note: controls.js is loaded via <script src> in the HTML (see line ~300).
+    // It must run before this script reaches the call to init().
 
     let width = 0;
     let height = 0;
@@ -337,16 +325,6 @@
 
     let t = 0;
     let lastTime = performance.now();
-
-    // ============================================================
-    // PURE HELPER FUNCTIONS — PR 1 Extraction + Generalization
-    // ============================================================
-    // These functions are pure and have no side effects.
-    // They are the mathematical foundation for the control surface.
-    //
-    // Key addition in PR 1: unmapSlider (inverse of mapSlider).
-    // This is required to correctly support visual-proxy sliders
-    // (e.g. frequency: slider 0–100 maps to model 0–100000 with power 2.6).
 
     // --- Color conversion helpers (used by Colorburst system) ---
 
@@ -465,36 +443,7 @@
       };
     }
 
-    // ============================================================
-    // PR 2: Core Parameter Primitives
-    // ============================================================
-    // These factories are the foundation for the future controls system.
-    // They are deliberately standalone so they can be developed and tested
-    // in isolation before being wired into the real UI.
-
-    /**
-     * Creates a high-precision slider control.
-     *
-     * Supports the strengthened contract required for visual-proxy ranges
-     * (especially frequency: 0-100 visual ↔ 0-100000 model with power curve).
-     *
-     * @param {Object} config
-     * @param {string} config.label
-     * @param {Function} config.getValue - () => current real model value
-     * @param {Function} config.setValue - (realValue) => void
-     * @param {number} [config.visualMin=0]
-     * @param {number} [config.visualMax=100]
-     * @param {number} config.modelMin
-     * @param {number} config.modelMax
-     * @param {number} [config.step=0.1]
-     * @param {number} [config.power=1] - if provided, uses canonical map/unmap
-     * @param {Function} [config.map]   - custom visual → model function
-     * @param {Function} [config.unmap] - custom model → visual function
-     * @param {number} [config.precision=2]
-     * @param {Function} [config.format] - (realValue) => display string
-     * @param {Function} [config.onChange] - called after setValue
-     * @returns {{element: HTMLElement, update: Function}}
-     */
+    // (Control primitives live in controls.js)
 
     const DEFAULT_RIPPLE_COLORS = ['#7ab8ff', '#a8d4ff', '#ff9f7a', '#7affa8', '#d47aff', '#ffea7a'];
 
@@ -983,71 +932,8 @@
      * New orchestrator (PR 5 start): Mounts the collection UI using the
      * component-based system.
      */
-    function mountSingleCollection(container, collection, colIndex, requestDraw) {
-      // Remove existing panel for this collection if present
-      const existing = container.querySelector(`[data-collection-index="${colIndex}"]`);
-      if (existing) existing.remove();
-
-      const panel = createCollectionPanel(
-        collection,
-        colIndex,
-        requestDraw,
-        () => {
-          // Delete this collection
-          collections.splice(colIndex, 1);
-          mountCollections(container, collections, requestDraw);
-          requestDraw();
-        },
-        (idx) => {
-          saveCollection(idx);
-        },
-        () => {
-          // Add ripple to this collection only
-          const lastRipple = collection.ripples[collection.ripples.length - 1];
-          const colorIndex = collection.ripples.length % DEFAULT_RIPPLE_COLORS.length;
-          const newRipple = {
-            id: nextRippleId++,
-            name: `Ripple ${collection.ripples.length + 1}`,
-            enabled: true,
-            expanded: true,
-            color: DEFAULT_RIPPLE_COLORS[colorIndex],
-            waves: lastRipple ? lastRipple.waves.map(w => ({ ...w })) : [
-              { frequency: 3, amplitude: 30, rate: 0.4 }
-            ]
-          };
-          collection.ripples.push(newRipple);
-
-          // Only re-mount this collection (targeted update)
-          mountSingleCollection(container, collection, colIndex, requestDraw);
-        }
-      );
-
-      panel.dataset.collectionIndex = colIndex;
-      container.appendChild(panel);
-    }
-
-    function mountCollections(container, collections, requestDraw) {
-      container.innerHTML = '';
-
-      collections.forEach((collection, colIndex) => {
-        mountSingleCollection(container, collection, colIndex, requestDraw);
-      });
-    }
-
-    /**
-     * Public entry point for refreshing the dynamic (per-collection) controls UI.
-     *
-     * In the new architecture (PR 5+), this is a thin delegation to
-     * `mountCollections`, which builds the UI using the component system
-     * (createCollectionPanel → createRippleCard → createWaveEditor).
-     *
-     * All structural mutations (add/delete collection or ripple) should
-     * eventually call this (or mountCollections directly) to refresh the view.
-     */
-    function renderAllControls() {
-      const container = document.getElementById('ripples-container');
-      mountCollections(container, collections, draw);
-    }
+    // renderAllControls / mountCollections are provided by controls.js
+    // (they close over the model defined above).
 
     function saveCollection(colIndex) {
       const collection = collections[colIndex];
@@ -1134,20 +1020,27 @@
     }
 
     function init() {
+      console.log('[Rippler] init() starting...');
+
       resize();
       window.addEventListener('resize', resize, { passive: true });
 
       // === PR 3: Mount new globals panel ===
-      const globalsMount = document.getElementById('globals-container');
-      if (globalsMount) {
-        // requestDraw is just an alias to draw for now
-        const globalsPanel = createGlobalsPanel(() => draw());
-        globalsMount.appendChild(globalsPanel);
+      try {
+        const globalsMount = document.getElementById('globals-container');
+        if (globalsMount) {
+          const globalsPanel = createGlobalsPanel(() => draw());
+          globalsMount.appendChild(globalsPanel);
+          console.log('[Rippler] Globals panel mounted.');
+        }
+      } catch (err) {
+        console.error('[Rippler] Error mounting globals panel:', err);
       }
 
       // === Collections + Controls ===
       try {
         renderAllControls();
+        console.log('[Rippler] renderAllControls() completed (dynamic UI should be visible).');
       } catch (err) {
         console.error('[Rippler] Error during initial renderAllControls():', err);
       }
@@ -1157,6 +1050,8 @@
 
       lastTime = performance.now();
       loop();
+
+      console.log('[Rippler] init() finished. RAF loop running.');
     }
 
     init();
