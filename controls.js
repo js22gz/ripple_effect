@@ -92,18 +92,8 @@ function createSlider({
     ? (v) => unmapSlider(v, modelMin, modelMax, power)
     : (v) => v);
 
-  function sync() {
+  function updateDisplay() {
     const real = getValue();
-    let visual = effectiveUnmap(real);
-
-    // Prevent the native range from snapping to 0 when the power curve produces
-    // a visual value smaller than the step (common with low frequencies/rates).
-    const minStep = parseFloat(input.step) || 0.1;
-    if (visual < minStep) {
-      visual = minStep;
-    }
-    input.value = visual;
-
     if (format) {
       valueSpan.textContent = format(real);
     } else {
@@ -111,19 +101,26 @@ function createSlider({
     }
   }
 
+  function fullSync() {
+    const real = getValue();
+    const visual = effectiveUnmap(real);
+    input.value = visual;
+    updateDisplay();
+  }
+
   input.oninput = () => {
     const visual = parseFloat(input.value);
     const real = effectiveMap(visual);
     setValue(real);
-    sync();
+    updateDisplay();           // only update the number, do NOT fight the input value
     if (onChange) onChange(real);
   };
 
-  sync();
+  fullSync();                  // initial state: set both input and display
 
   return {
     element: root,
-    update: sync,
+    update: fullSync,          // external updates (presets, etc.) get full sync
     valueSpan,
   };
 }
@@ -219,8 +216,8 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
   container.className = 'wave-group';
 
   // Frequency uses visual proxy 0-100 → 0-100000 with power 2.6.
-  // We use a very fine step here so that the tiny visual values produced by
-  // unmapSlider() for low real frequencies are not snapped to 0 by the native range input.
+  // The slider now stays where the user drags it (no forced write-back of tiny
+  // unmapped values), so a normal step works well.
   container.appendChild(
     createSlider({
       label: `Wave ${waveIndex + 1} · Frequency`,
@@ -230,7 +227,7 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
       visualMax: 100,
       modelMin: 0,
       modelMax: 100000,
-      step: 0.0001,         // extremely fine step needed so low real frequencies don't snap the visual slider to 0
+      step: 0.1,
       power: 2.6,
       precision: 2,
       onChange: () => requestDraw(),
@@ -255,18 +252,20 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
 
   // Rate uses a visual proxy slider (0-100) mapped to model range 0-1 with power=2.6.
   // This is what gives good fine control at the very low rates used in the slow-evolution default.
-  // Rate: visual 0-10 → model 0-1 with power 2.6 (user preference).
-  // 0.01 precision on the visual scale.
+  // Rate: visual 0-100 → model 0-1 with power 2.6.
+  // Gives full physical thumb travel on the slider while the power curve
+  // still provides fine control at very low rates. Step 0.1 on visual ≈ 0.01-ish
+  // effective precision in the low range the user cares about.
   container.appendChild(
     createSlider({
       label: 'Rate',
       getValue: () => wave.rate,
       setValue: v => { wave.rate = v; },
       visualMin: 0,
-      visualMax: 10,
+      visualMax: 100,
       modelMin: 0,
       modelMax: 1,
-      step: 0.01,
+      step: 0.1,
       power: 2.6,
       precision: 4,
       onChange: () => requestDraw(),
@@ -771,7 +770,7 @@ window.__ripplerTestSlider = function() {
     visualMax: 100,
     modelMin: 0,
     modelMax: 100000,
-    step: 0.0001,       // extremely fine for low real frequencies
+    step: 0.1,
     power: 2.6,
     precision: 0,
     onChange: v => console.log('[PR2 Test] value changed to', v),
