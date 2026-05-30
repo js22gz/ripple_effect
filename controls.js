@@ -223,7 +223,7 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
       visualMax: 100,
       modelMin: 0,
       modelMax: 100000,
-      step: 0.001,          // fine step is critical for low-end nonlinear sliders
+      step: 0.0001,         // extremely fine step needed so low real frequencies don't snap the visual slider to 0
       power: 2.6,
       precision: 2,
       onChange: () => requestDraw(),
