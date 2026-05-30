@@ -186,6 +186,90 @@
       margin-bottom: 4px;
     }
 
+    /* PR 4 refinements - better styling parity using custom properties */
+    .collection {
+      margin-bottom: 14px;
+      padding: 10px;
+      background: var(--controls-bg-subtle-2);
+      border-radius: var(--controls-radius);
+      border: 1px solid var(--controls-border);
+    }
+
+    .ripple-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .ripple-header h4 {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--controls-text-secondary);
+      flex: 1;
+      cursor: pointer;
+    }
+
+    .ripple-header input[type="color"] {
+      width: 26px;
+      height: 20px;
+      padding: 0;
+      border: 1px solid var(--controls-border-strong);
+      border-radius: 3px;
+      background: transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .expand-toggle, .delete-btn {
+      background: transparent;
+      border: none;
+      color: var(--controls-text-muted);
+      font-size: 13px;
+      line-height: 1;
+      padding: 2px 5px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+
+    .expand-toggle:hover, .delete-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: var(--controls-text-primary);
+    }
+
+    .delete-btn:hover {
+      color: var(--controls-danger);
+    }
+
+    .ripple-controls {
+      margin-top: 4px;
+    }
+
+    .collection-name-input {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--controls-border-strong);
+      color: var(--controls-text-primary);
+      padding: 4px 6px;
+      font-size: 11px;
+    }
+
+    .burst-label {
+      font-size: 9px;
+      color: var(--controls-text-muted);
+      margin-left: 4px;
+    }
+
+    .save-btn {
+      font-size: 10px;
+      padding: 3px 8px;
+      background: var(--controls-bg-subtle);
+      border: 1px solid var(--controls-border-strong);
+      color: var(--controls-text-primary);
+      border-radius: 4px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -679,29 +763,14 @@
 
       // Collection Header
       const colHeader = document.createElement('div');
-      colHeader.style.display = 'flex';
-      colHeader.style.alignItems = 'center';
-      colHeader.style.gap = '8px';
-      colHeader.style.marginBottom = '8px';
 
       const colToggle = document.createElement('button');
       colToggle.className = 'expand-toggle';
-      colToggle.style.fontSize = '13px';
-      colToggle.style.padding = '2px 5px';
-      colToggle.style.background = 'transparent';
-      colToggle.style.border = 'none';
-      colToggle.style.color = '#888';
-      colToggle.style.cursor = 'pointer';
 
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
       nameInput.value = collection.name;
-      nameInput.style.flex = '1';
-      nameInput.style.background = 'transparent';
-      nameInput.style.border = '1px solid #444';
-      nameInput.style.color = '#ddd';
-      nameInput.style.padding = '4px 6px';
-      nameInput.style.fontSize = '11px';
+      nameInput.className = 'collection-name-input';
       nameInput.onchange = () => {
         collection.name = nameInput.value.trim() || 'Untitled';
       };
@@ -709,9 +778,7 @@
       // Per-collection Colorburst intensity ("B" slider)
       const burstLabel = document.createElement('span');
       burstLabel.textContent = 'B';
-      burstLabel.style.fontSize = '9px';
-      burstLabel.style.color = '#888';
-      burstLabel.style.marginLeft = '4px';
+      burstLabel.className = 'burst-label';
 
       const burstSlider = createSlider({
         label: '',
@@ -737,25 +804,14 @@
 
       const saveBtn = document.createElement('button');
       saveBtn.textContent = 'Save';
-      saveBtn.style.fontSize = '10px';
-      saveBtn.style.padding = '3px 8px';
-      saveBtn.style.background = '#2a2a33';
-      saveBtn.style.border = '1px solid #555';
-      saveBtn.style.color = '#ccc';
-      saveBtn.style.borderRadius = '4px';
-      saveBtn.style.cursor = 'pointer';
+      saveBtn.className = 'save-btn';
       saveBtn.onclick = () => {
         if (onSaveCollection) onSaveCollection(colIndex);
       };
 
       const deleteColBtn = document.createElement('button');
       deleteColBtn.textContent = '×';
-      deleteColBtn.style.fontSize = '14px';
-      deleteColBtn.style.padding = '2px 6px';
-      deleteColBtn.style.color = '#ff6b6b';
-      deleteColBtn.style.background = 'transparent';
-      deleteColBtn.style.border = 'none';
-      deleteColBtn.style.cursor = 'pointer';
+      deleteColBtn.className = 'delete-btn';
       deleteColBtn.onclick = () => {
         if (onDeleteCollection) onDeleteCollection();
       };
@@ -839,9 +895,6 @@
       // Header
       const header = document.createElement('div');
       header.className = 'ripple-header';
-      header.style.display = 'flex';
-      header.style.alignItems = 'center';
-      header.style.gap = '6px';
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
@@ -853,11 +906,6 @@
 
       const title = document.createElement('h4');
       title.textContent = ripple.name;
-      title.style.flex = '1';
-      title.style.margin = '0';
-      title.style.fontSize = '11px';
-      title.style.color = '#aaa';
-      title.style.cursor = 'pointer';
 
       const colorInput = document.createElement('input');
       colorInput.type = 'color';
@@ -869,22 +917,10 @@
 
       const expandBtn = document.createElement('button');
       expandBtn.className = 'expand-toggle';
-      expandBtn.style.fontSize = '13px';
-      expandBtn.style.padding = '2px 5px';
-      expandBtn.style.background = 'transparent';
-      expandBtn.style.border = 'none';
-      expandBtn.style.color = '#888';
-      expandBtn.style.cursor = 'pointer';
 
       const delBtn = document.createElement('button');
       delBtn.className = 'delete-btn';
       delBtn.textContent = '×';
-      delBtn.style.fontSize = '14px';
-      delBtn.style.padding = '2px 6px';
-      delBtn.style.color = '#ff6b6b';
-      delBtn.style.background = 'transparent';
-      delBtn.style.border = 'none';
-      delBtn.style.cursor = 'pointer';
 
       const updateExpandUI = () => {
         const isExpanded = ripple.expanded !== false;
