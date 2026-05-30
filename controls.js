@@ -211,6 +211,9 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
   const container = document.createElement('div');
   container.className = 'wave-group';
 
+  // Frequency uses visual proxy 0-100 → 0-100000 with power 2.6.
+  // We use a very fine step here so that the tiny visual values produced by
+  // unmapSlider() for low real frequencies are not snapped to 0 by the native range input.
   container.appendChild(
     createSlider({
       label: `Wave ${waveIndex + 1} · Frequency`,
@@ -220,7 +223,7 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
       visualMax: 100,
       modelMin: 0,
       modelMax: 100000,
-      step: 0.1,
+      step: 0.001,          // fine step is critical for low-end nonlinear sliders
       power: 2.6,
       precision: 2,
       onChange: () => requestDraw(),
@@ -759,6 +762,7 @@ window.__ripplerTestSlider = function() {
     visualMax: 100,
     modelMin: 0,
     modelMax: 100000,
+    step: 0.001,        // must be fine for power curves at low values
     power: 2.6,
     precision: 0,
     onChange: v => console.log('[PR2 Test] value changed to', v),
