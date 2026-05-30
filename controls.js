@@ -215,6 +215,45 @@ function createSelect({ label, getValue, setValue, options, onChange }) {
   return { element: wrapper, update: sync };
 }
 
+// Custom highly non-linear mapping for Rate parameter.
+// Visual 0-100:
+//   - First 70%: Rate from 1 to 10000 (high rates)
+//   - Last 30%:  Rate from 0.001 to 1 (critical low rates get lots of space)
+function rateMap(visual, visualMin, visualMax) {
+  const v = (visual - visualMin) / (visualMax - visualMin); // 0..1
+  const highRate = 10000;
+  const lowRate = 0.001;
+  const breakpoint = 1;
+  const lowFraction = 0.30;
+  const highVisual = 1 - lowFraction;
+
+  if (v <= highVisual) {
+    const t = v / highVisual;
+    const p = 1.8; // moderate curve for high rates
+    return breakpoint + (highRate - breakpoint) * Math.pow(t, p);
+  } else {
+    const t = (v - highVisual) / lowFraction;
+    const p = 4.5; // strong curve → very low rates get a lot of visual space
+    return lowRate + (breakpoint - lowRate) * Math.pow(t, p);
+  }
+}
+
+function rateUnmap(rate, visualMin, visualMax) {
+  const highRate = 10000;
+  const lowRate = 0.001;
+  const breakpoint = 1;
+  const lowFraction = 0.30;
+  const highVisual = 1 - lowFraction;
+
+  if (rate >= breakpoint) {
+    const t = Math.pow((rate - breakpoint) / (highRate - breakpoint), 1 / 1.8);
+    return visualMin + t * highVisual * (visualMax - visualMin);
+  } else {
+    const t = Math.pow((rate - lowRate) / (breakpoint - lowRate), 1 / 4.5);
+    return visualMin + (highVisual + t * lowFraction) * (visualMax - visualMin);
+  }
+}
+
 // ============================================================
 // PR 4 Dynamic Components
 // ============================================================
@@ -261,10 +300,10 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
 
   // Rate uses a visual proxy slider (0-100) mapped to model range 0-1 with power=2.6.
   // This is what gives good fine control at the very low rates used in the slow-evolution default.
-  // Rate: visual 0-100 → model 0-1 with power 2.6.
-  // Gives full physical thumb travel on the slider while the power curve
-  // still provides fine control at very low rates. Step 0.1 on visual ≈ 0.01-ish
-  // effective precision in the low range the user cares about.
+  // Rate uses a custom piecewise mapping:
+  // - 70% of slider: 1 → 10000
+  // - 30% of slider: 0.001 → 1
+  // This gives plenty of fine control in the very low rate region the user cares about.
   container.appendChild(
     createSlider({
       label: 'Rate',
@@ -272,10 +311,11 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
       setValue: v => { wave.rate = v; },
       visualMin: 0,
       visualMax: 100,
-      modelMin: 0,
-      modelMax: 1,
-      step: 0.1,
-      power: 2.6,
+      modelMin: 0.001,
+      modelMax: 10000,
+      step: 0.05,
+      map: rateMap,
+      unmap: rateUnmap,
       precision: 4,
       onChange: () => requestDraw(),
     }).element
