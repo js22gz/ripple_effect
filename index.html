@@ -6,10 +6,10 @@
   <title>Ripple Effect</title>
   <style>
     /* ============================================================
-       CSS Custom Properties — PR 1 foundation (no visual change)
+       CSS Custom Properties
        These tokens capture the current dark-glass aesthetic exactly.
-       All future control components should use these instead of
-       hard-coded rgba / hex values.
+       All control components should use these instead of hard-coded
+       rgba / hex values.
        ============================================================ */
     :root {
       --controls-bg: rgba(15, 15, 20, 0.92);
@@ -186,7 +186,7 @@
       margin-bottom: 4px;
     }
 
-    /* PR 4 refinements - better styling parity using custom properties */
+    /* Component styling using the custom properties defined above */
     .collection {
       margin-bottom: 14px;
       padding: 10px;
@@ -277,7 +277,7 @@
 
   <div id="controls">
     <h3>Globals</h3>
-    <!-- PR 3: New globals implementation (replaces old static controls) -->
+    <!-- New globals implementation (component-based) -->
     <div id="globals-container"></div>
 
     <!-- Top Settings Box -->
@@ -296,7 +296,7 @@
     <div id="ripples-container"></div>
   </div>
 
-  <!-- Extracted controls system (PR 5+ extraction) -->
+  <!-- Control system (see controls.js) -->
   <script src="controls.js"></script>
 
   <script>
@@ -314,8 +314,8 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d', { alpha: true });
 
-    // Note: controls.js is loaded via <script src> in the HTML (see line ~300).
-    // It must run before this script reaches the call to init().
+    // controls.js is loaded earlier in the HTML. It provides the control factories
+    // and must be available before init() runs.
 
     let width = 0;
     let height = 0;
@@ -454,7 +454,7 @@
 
     /**
      * ============================================================
-     * DATA MODEL — PR 1 Documentation
+     * DATA MODEL
      * ============================================================
      * This is the canonical in-memory model for the rippler tool.
      * All controls (current and future) read/write through this shape.
@@ -935,13 +935,7 @@
       return null;
     }
 
-    // === Dynamic Controls (Collection-based) ===
-    /**
-     * New orchestrator (PR 5 start): Mounts the collection UI using the
-     * component-based system.
-     */
-    // renderAllControls / mountCollections are provided by controls.js
-    // (they close over the model defined above).
+    // (Dynamic control mounting now lives in controls.js via mountCollections)
 
     function saveCollection(colIndex) {
       const collection = collections[colIndex];
@@ -1028,27 +1022,23 @@
     }
 
     function init() {
-      console.log('[Rippler] init() starting...');
-
       resize();
       window.addEventListener('resize', resize, { passive: true });
 
-      // === PR 3: Mount new globals panel ===
+      // Mount the new globals panel (component-based)
       try {
         const globalsMount = document.getElementById('globals-container');
         if (globalsMount) {
           const globalsPanel = createGlobalsPanel(() => draw());
           globalsMount.appendChild(globalsPanel);
-          console.log('[Rippler] Globals panel mounted.');
         }
       } catch (err) {
         console.error('[Rippler] Error mounting globals panel:', err);
       }
 
-      // === Collections + Controls ===
+      // Render the dynamic controls
       try {
         renderAllControls();
-        console.log('[Rippler] renderAllControls() completed (dynamic UI should be visible).');
       } catch (err) {
         console.error('[Rippler] Error during initial renderAllControls():', err);
       }
@@ -1058,8 +1048,6 @@
 
       lastTime = performance.now();
       loop();
-
-      console.log('[Rippler] init() finished. RAF loop running.');
     }
 
     init();
