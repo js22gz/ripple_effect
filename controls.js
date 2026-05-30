@@ -94,7 +94,14 @@ function createSlider({
 
   function sync() {
     const real = getValue();
-    const visual = effectiveUnmap(real);
+    let visual = effectiveUnmap(real);
+
+    // Prevent the native range from snapping to 0 when the power curve produces
+    // a visual value smaller than the step (common with low frequencies/rates).
+    const minStep = parseFloat(input.step) || 0.1;
+    if (visual < minStep) {
+      visual = minStep;
+    }
     input.value = visual;
 
     if (format) {
@@ -248,16 +255,18 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
 
   // Rate uses a visual proxy slider (0-100) mapped to model range 0-1 with power=2.6.
   // This is what gives good fine control at the very low rates used in the slow-evolution default.
+  // Rate: visual 0-10 → model 0-1 with power 2.6 (user preference).
+  // 0.01 precision on the visual scale.
   container.appendChild(
     createSlider({
       label: 'Rate',
       getValue: () => wave.rate,
       setValue: v => { wave.rate = v; },
       visualMin: 0,
-      visualMax: 100,
+      visualMax: 10,
       modelMin: 0,
       modelMax: 1,
-      step: 0.1,
+      step: 0.01,
       power: 2.6,
       precision: 4,
       onChange: () => requestDraw(),
@@ -762,7 +771,7 @@ window.__ripplerTestSlider = function() {
     visualMax: 100,
     modelMin: 0,
     modelMax: 100000,
-    step: 0.001,        // must be fine for power curves at low values
+    step: 0.0001,       // extremely fine for low real frequencies
     power: 2.6,
     precision: 0,
     onChange: v => console.log('[PR2 Test] value changed to', v),
