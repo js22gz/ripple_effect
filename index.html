@@ -185,6 +185,11 @@
     .wave-group {
       margin-bottom: 4px;
     }
+
+    /* PR 3 temporary: hide old static globals while new ones are active */
+    #globals-old {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -192,7 +197,11 @@
 
   <div id="controls">
     <h3>Globals</h3>
-    <div class="global-controls">
+    <!-- PR 3 mount point for new globals implementation -->
+    <div id="globals-container"></div>
+
+    <!-- Old static globals kept for rollback during PR 3 -->
+    <div class="global-controls" id="globals-old">
       <div class="slider-control">
         <div class="slider-label">
           <span class="label">Shape Height</span>
@@ -730,43 +739,420 @@
     const colorburstConnections = new Map();
 
     // ============================================================
+    // PR 3: Globals Panel using new primitives
+    // ============================================================
+    /**
+     * Creates the full set of global parameter controls using the new
+     * primitives. This is the first real usage of the PR 2 factories.
+     *
+     * We keep the old static HTML + wiring alive during this PR for
+     * easy rollback / side-by-side comparison.
+     */
+    function createGlobalsPanel(requestDraw) {
+      const root = document.createElement('div');
+      root.className = 'global-controls';
+
+      // Helper to create a group with an optional header
+      const createGroup = (title) => {
+        const g = document.createElement('div');
+        if (title) {
+          const h = document.createElement('div');
+          h.style.fontSize = '10px';
+          h.style.color = '#888';
+          h.style.margin = '8px 0 4px';
+          h.textContent = title;
+          g.appendChild(h);
+        }
+        return g;
+      };
+
+      // === Shape / Base / Chaos group ===
+      const shapeGroup = createGroup(null);
+
+      // Shape Height
+      shapeGroup.appendChild(
+        createSlider({
+          label: 'Shape Height',
+          getValue: () => SHAPE_HEIGHT,
+          setValue: v => { SHAPE_HEIGHT = v; },
+          visualMin: 200,
+          visualMax: 900,
+          modelMin: 200,
+          modelMax: 900,
+          step: 10,
+          power: 1,
+          precision: 0,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      // Base Width Top
+      shapeGroup.appendChild(
+        createSlider({
+          label: 'Base Width Top',
+          getValue: () => BASE_WIDTH_TOP,
+          setValue: v => { BASE_WIDTH_TOP = v; },
+          visualMin: 0,
+          visualMax: 200,
+          modelMin: 0,
+          modelMax: 200,
+          step: 1,
+          power: 1,
+          precision: 0,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      // Base Width Bottom
+      shapeGroup.appendChild(
+        createSlider({
+          label: 'Base Width Bottom',
+          getValue: () => BASE_WIDTH_BOTTOM,
+          setValue: v => { BASE_WIDTH_BOTTOM = v; },
+          visualMin: 0,
+          visualMax: 200,
+          modelMin: 0,
+          modelMax: 200,
+          step: 1,
+          power: 1,
+          precision: 0,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      // Chaos (use power curve for better low-end control)
+      shapeGroup.appendChild(
+        createSlider({
+          label: 'Chaos',
+          getValue: () => CHAOS,
+          setValue: v => { CHAOS = v; },
+          visualMin: 0,
+          visualMax: 30,
+          modelMin: 0,
+          modelMax: 30,
+          step: 0.1,
+          power: 2.6,
+          precision: 2,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      root.appendChild(shapeGroup);
+
+      // === Top Cap group ===
+      const topCapGroup = createGroup('Top Cap');
+
+      topCapGroup.appendChild(
+        createSlider({
+          label: 'Top Cap Height',
+          getValue: () => TOP_CAP_HEIGHT,
+          setValue: v => { TOP_CAP_HEIGHT = v; },
+          visualMin: 0,
+          visualMax: 150,
+          modelMin: 0,
+          modelMax: 150,
+          step: 1,
+          power: 1,
+          precision: 0,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      topCapGroup.appendChild(
+        createSlider({
+          label: 'Top Focus',
+          getValue: () => TOP_CAP_FOCUS,
+          setValue: v => { TOP_CAP_FOCUS = v; },
+          visualMin: -1,
+          visualMax: 1,
+          modelMin: -1,
+          modelMax: 1,
+          step: 0.01,
+          power: 1,
+          precision: 2,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      topCapGroup.appendChild(
+        createSlider({
+          label: 'Top Strength',
+          getValue: () => TOP_CAP_STRENGTH,
+          setValue: v => { TOP_CAP_STRENGTH = v; },
+          visualMin: 0,
+          visualMax: 1,
+          modelMin: 0,
+          modelMax: 1,
+          step: 0.01,
+          power: 1,
+          precision: 2,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      root.appendChild(topCapGroup);
+
+      // === Bottom Cap group ===
+      const bottomCapGroup = createGroup('Bottom Cap');
+
+      bottomCapGroup.appendChild(
+        createSlider({
+          label: 'Bottom Cap Height',
+          getValue: () => BOTTOM_CAP_HEIGHT,
+          setValue: v => { BOTTOM_CAP_HEIGHT = v; },
+          visualMin: 0,
+          visualMax: 150,
+          modelMin: 0,
+          modelMax: 150,
+          step: 1,
+          power: 1,
+          precision: 0,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      bottomCapGroup.appendChild(
+        createSlider({
+          label: 'Bottom Focus',
+          getValue: () => BOTTOM_CAP_FOCUS,
+          setValue: v => { BOTTOM_CAP_FOCUS = v; },
+          visualMin: -1,
+          visualMax: 1,
+          modelMin: -1,
+          modelMax: 1,
+          step: 0.01,
+          power: 1,
+          precision: 2,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      bottomCapGroup.appendChild(
+        createSlider({
+          label: 'Bottom Strength',
+          getValue: () => BOTTOM_CAP_STRENGTH,
+          setValue: v => { BOTTOM_CAP_STRENGTH = v; },
+          visualMin: 0,
+          visualMax: 1,
+          modelMin: 0,
+          modelMax: 1,
+          step: 0.01,
+          power: 1,
+          precision: 2,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      root.appendChild(bottomCapGroup);
+
+      // === Colorburst group ===
+      const cbGroup = createGroup('Colorburst');
+
+      cbGroup.appendChild(
+        createSlider({
+          label: 'Intensity',
+          getValue: () => COLORBURST_INTENSITY,
+          setValue: v => { COLORBURST_INTENSITY = v; },
+          visualMin: 0,
+          visualMax: 1,
+          modelMin: 0,
+          modelMax: 1,
+          step: 0.01,
+          power: 1,
+          precision: 2,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      cbGroup.appendChild(
+        createSlider({
+          label: 'Smoothness',
+          getValue: () => COLORBURST_SMOOTHNESS,
+          setValue: v => { COLORBURST_SMOOTHNESS = v; },
+          visualMin: 0,
+          visualMax: 0.995,
+          modelMin: 0,
+          modelMax: 0.995,
+          step: 0.001,
+          power: 1,
+          precision: 3,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      cbGroup.appendChild(
+        createSlider({
+          label: 'Burst Intensity',
+          getValue: () => COLORBURST_BURST_INTENSITY,
+          setValue: v => { COLORBURST_BURST_INTENSITY = v; },
+          visualMin: 0,
+          visualMax: 2,
+          modelMin: 0,
+          modelMax: 2,
+          step: 0.01,
+          power: 1,
+          precision: 2,
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      // Checkboxes
+      cbGroup.appendChild(
+        createCheckbox({
+          label: 'Enable Colorburst',
+          getValue: () => COLORBURST_ENABLED,
+          setValue: v => { COLORBURST_ENABLED = v; },
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      cbGroup.appendChild(
+        createCheckbox({
+          label: 'Connect Non-Adjacent Ripples',
+          getValue: () => COLORBURST_NON_ADJACENT,
+          setValue: v => { COLORBURST_NON_ADJACENT = v; },
+          onChange: () => requestDraw(),
+        }).element
+      );
+
+      // Blend mode select (keep simple for now)
+      const blendWrapper = document.createElement('div');
+      blendWrapper.style.marginTop = '6px';
+
+      const blendLabel = document.createElement('div');
+      blendLabel.style.fontSize = '10px';
+      blendLabel.style.color = '#888';
+      blendLabel.style.marginBottom = '2px';
+      blendLabel.textContent = 'Blend Mode';
+
+      const blendSelect = document.createElement('select');
+      blendSelect.style.width = '100%';
+      blendSelect.style.background = '#2a2a33';
+      blendSelect.style.color = '#ccc';
+      blendSelect.style.border = '1px solid #555';
+      blendSelect.style.fontSize = '11px';
+      blendSelect.style.padding = '3px 4px';
+      blendSelect.style.borderRadius = '4px';
+
+      [
+        { value: 'vibrant', label: 'Vibrant (keeps color best)' },
+        { value: 'additive', label: 'Additive (classic)' },
+        { value: 'screen', label: 'Screen' },
+      ].forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.label;
+        blendSelect.appendChild(o);
+      });
+
+      blendWrapper.appendChild(blendLabel);
+      blendWrapper.appendChild(blendSelect);
+      cbGroup.appendChild(blendWrapper);
+
+      // Wire the select
+      blendSelect.value = COLORBURST_BLEND_MODE;
+      blendSelect.onchange = () => {
+        COLORBURST_BLEND_MODE = blendSelect.value;
+        requestDraw();
+      };
+
+      root.appendChild(cbGroup);
+
+      return root;
+    }
+
+    // ============================================================
     // PR 2: Temporary Test Harness
     // ============================================================
-    // Expose a simple way to test the new primitives in the console
-    // without affecting the real UI. Run in console:
+    // Run in the browser console:
     //   window.__ripplerTestSlider()
+    //
+    // This creates a small isolated test panel using the new primitives.
+    // It demonstrates the exact nonlinear mappings used by your current
+    // slow-evolution default (especially frequency visual proxy + rate).
     window.__ripplerTestSlider = function() {
       const container = document.createElement('div');
       container.style.position = 'fixed';
       container.style.bottom = '12px';
       container.style.left = '12px';
       container.style.background = 'rgba(20,22,28,0.95)';
-      container.style.border = '1px solid rgba(255,255,255,0.15)';
+      container.style.border = '1px solid rgba(255,255,255,0.2)';
       container.style.borderRadius = '6px';
-      container.style.padding = '10px 12px';
+      container.style.padding = '12px';
       container.style.zIndex = '9999';
-      container.style.minWidth = '220px';
+      container.style.minWidth = '260px';
+      container.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)';
 
-      let value = 1234.5;
+      const title = document.createElement('div');
+      title.textContent = 'PR 2 Test — New Primitives';
+      title.style.fontSize = '11px';
+      title.style.fontWeight = '600';
+      title.style.color = '#7ab8ff';
+      title.style.marginBottom = '10px';
+      container.appendChild(title);
 
-      const slider = createSlider({
-        label: 'Test Frequency (visual proxy)',
-        getValue: () => value,
-        setValue: v => { value = v; },
+      // === Test values matching your slow-evolution default style ===
+      let freq = 1234.5;     // typical mid-high frequency
+      let rate  = 0.0146;    // one of the actual rates from your default
+      let amp   = 21;        // from your default
+
+      // 1. Frequency — the hard case (visual proxy + power curve)
+      const freqSlider = createSlider({
+        label: 'Frequency (visual 0-100 → model 0-100k)',
+        getValue: () => freq,
+        setValue: v => { freq = v; },
         visualMin: 0,
         visualMax: 100,
         modelMin: 0,
         modelMax: 100000,
         power: 2.6,
         precision: 0,
-        onChange: v => console.log('[PR2 Test] value changed to', v),
+        onChange: v => console.log('%c[PR2] Frequency real value:', 'color:#aaa', v),
       });
+      container.appendChild(freqSlider.element);
 
-      container.appendChild(slider.element);
+      // 2. Rate — very low values, power curve (your default lives here)
+      const rateSlider = createSlider({
+        label: 'Rate (very low, power 2.6)',
+        getValue: () => rate,
+        setValue: v => { rate = v; },
+        visualMin: 0,
+        visualMax: 100,
+        modelMin: 0,
+        modelMax: 1,
+        power: 2.6,
+        precision: 4,
+        onChange: v => console.log('%c[PR2] Rate real value:', 'color:#aaa', v),
+      });
+      container.appendChild(rateSlider.element);
+
+      // 3. Amplitude — linear (no power)
+      const ampSlider = createSlider({
+        label: 'Amplitude (linear)',
+        getValue: () => amp,
+        setValue: v => { amp = v; },
+        visualMin: 0,
+        visualMax: 90,
+        modelMin: 0,
+        modelMax: 90,
+        power: 1,
+        precision: 1,
+        onChange: v => console.log('%c[PR2] Amplitude real value:', 'color:#aaa', v),
+      });
+      container.appendChild(ampSlider.element);
+
+      // Small info line
+      const info = document.createElement('div');
+      info.style.fontSize = '9px';
+      info.style.color = '#666';
+      info.style.marginTop = '8px';
+      info.textContent = 'These use the exact same mapping logic as your current default.';
+      container.appendChild(info);
+
       document.body.appendChild(container);
 
-      console.log('%c[PR2] Test slider mounted. Adjust it and watch the console.', 'color:#7ab8ff');
-      console.log('Call window.__ripplerTestSlider() again to create more instances.');
+      console.log('%c[PR 2] Test panel mounted. Tweak the sliders and watch the console for real model values.', 'color:#7ab8ff');
+      console.log('You can call window.__ripplerTestSlider() multiple times.');
     };
     let nextRippleId = 1;
 
@@ -1758,6 +2144,14 @@
       botS.value = BOTTOM_CAP_STRENGTH;
       botSVal.textContent = BOTTOM_CAP_STRENGTH.toFixed(2);
       botS.oninput = (e) => { BOTTOM_CAP_STRENGTH = parseFloat(e.target.value); botSVal.textContent = BOTTOM_CAP_STRENGTH.toFixed(2); draw(); };
+
+      // === PR 3: Mount new globals panel ===
+      const globalsMount = document.getElementById('globals-container');
+      if (globalsMount) {
+        // requestDraw is just an alias to draw for now
+        const globalsPanel = createGlobalsPanel(() => draw());
+        globalsMount.appendChild(globalsPanel);
+      }
 
       // === Collections + Controls ===
       renderAllControls();
