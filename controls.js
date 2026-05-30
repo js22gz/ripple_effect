@@ -505,13 +505,14 @@ function createGlobalsPanel(requestDraw) {
     onChange: () => requestDraw(),
   }).element);
 
+  // Base widths now support very large values so the form can easily span (and exceed) the full screen width.
   shapeGroup.appendChild(createSlider({
     label: 'Base Width Top',
     getValue: () => BASE_WIDTH_TOP,
     setValue: v => { BASE_WIDTH_TOP = v; },
-    visualMin: 0, visualMax: 200,
-    modelMin: 0, modelMax: 200,
-    step: 1, power: 1, precision: 0,
+    visualMin: 0, visualMax: 12000,
+    modelMin: 0, modelMax: 12000,
+    step: 5, power: 2.6, precision: 0,
     onChange: () => requestDraw(),
   }).element);
 
@@ -519,9 +520,9 @@ function createGlobalsPanel(requestDraw) {
     label: 'Base Width Bottom',
     getValue: () => BASE_WIDTH_BOTTOM,
     setValue: v => { BASE_WIDTH_BOTTOM = v; },
-    visualMin: 0, visualMax: 200,
-    modelMin: 0, modelMax: 200,
-    step: 1, power: 1, precision: 0,
+    visualMin: 0, visualMax: 12000,
+    modelMin: 0, modelMax: 12000,
+    step: 5, power: 2.6, precision: 0,
     onChange: () => requestDraw(),
   }).element);
 
