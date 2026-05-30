@@ -671,15 +671,172 @@
     }
 
     /**
-     * Creates the full card for one ripple (header + waves).
-     * This is the main building block for the dynamic part.
+     * Creates the panel for an entire collection (header + ripple cards).
      */
-    function createRippleCard(collection, rippleIndex, requestDraw) {
+    function createCollectionPanel(collection, colIndex, requestDraw, onDeleteCollection, onSaveCollection, onAddRipple) {
+      const panel = document.createElement('div');
+      panel.className = 'collection';
+
+      // Collection Header
+      const colHeader = document.createElement('div');
+      colHeader.style.display = 'flex';
+      colHeader.style.alignItems = 'center';
+      colHeader.style.gap = '8px';
+      colHeader.style.marginBottom = '8px';
+
+      const colToggle = document.createElement('button');
+      colToggle.className = 'expand-toggle';
+      colToggle.style.fontSize = '13px';
+      colToggle.style.padding = '2px 5px';
+      colToggle.style.background = 'transparent';
+      colToggle.style.border = 'none';
+      colToggle.style.color = '#888';
+      colToggle.style.cursor = 'pointer';
+
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.value = collection.name;
+      nameInput.style.flex = '1';
+      nameInput.style.background = 'transparent';
+      nameInput.style.border = '1px solid #444';
+      nameInput.style.color = '#ddd';
+      nameInput.style.padding = '4px 6px';
+      nameInput.style.fontSize = '11px';
+      nameInput.onchange = () => {
+        collection.name = nameInput.value.trim() || 'Untitled';
+      };
+
+      // Per-collection Colorburst intensity ("B" slider)
+      const burstLabel = document.createElement('span');
+      burstLabel.textContent = 'B';
+      burstLabel.style.fontSize = '9px';
+      burstLabel.style.color = '#888';
+      burstLabel.style.marginLeft = '4px';
+
+      const burstSlider = createSlider({
+        label: '',
+        getValue: () => collection.colorburstIntensity ?? 1.0,
+        setValue: v => { collection.colorburstIntensity = v; },
+        visualMin: 0,
+        visualMax: 1,
+        modelMin: 0,
+        modelMax: 1,
+        step: 0.05,
+        power: 1,
+        precision: 2,
+        onChange: () => requestDraw(),
+      });
+
+      // Make the B slider more compact
+      const burstSliderEl = burstSlider.element;
+      burstSliderEl.style.width = '70px';
+      if (burstSliderEl.querySelector) {
+        const input = burstSliderEl.querySelector('input[type="range"]');
+        if (input) input.style.width = '60px';
+      }
+
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Save';
+      saveBtn.style.fontSize = '10px';
+      saveBtn.style.padding = '3px 8px';
+      saveBtn.style.background = '#2a2a33';
+      saveBtn.style.border = '1px solid #555';
+      saveBtn.style.color = '#ccc';
+      saveBtn.style.borderRadius = '4px';
+      saveBtn.style.cursor = 'pointer';
+      saveBtn.onclick = () => {
+        if (onSaveCollection) onSaveCollection(colIndex);
+      };
+
+      const deleteColBtn = document.createElement('button');
+      deleteColBtn.textContent = '×';
+      deleteColBtn.style.fontSize = '14px';
+      deleteColBtn.style.padding = '2px 6px';
+      deleteColBtn.style.color = '#ff6b6b';
+      deleteColBtn.style.background = 'transparent';
+      deleteColBtn.style.border = 'none';
+      deleteColBtn.style.cursor = 'pointer';
+      deleteColBtn.onclick = () => {
+        if (onDeleteCollection) onDeleteCollection();
+      };
+
+      const updateColExpandUI = () => {
+        const isExpanded = collection.expanded !== false;
+        colToggle.textContent = isExpanded ? '▼' : '▶';
+        contentWrapper.style.display = isExpanded ? '' : 'none';
+      };
+
+      colToggle.onclick = () => {
+        collection.expanded = !(collection.expanded !== false);
+        updateColExpandUI();
+      };
+
+      colHeader.appendChild(colToggle);
+      colHeader.appendChild(nameInput);
+      colHeader.appendChild(burstLabel);
+      colHeader.appendChild(burstSliderEl);
+      colHeader.appendChild(saveBtn);
+      colHeader.appendChild(deleteColBtn);
+
+      panel.appendChild(colHeader);
+
+      // Content wrapper for ripples
+      const contentWrapper = document.createElement('div');
+
+      const updateRipples = () => {
+        contentWrapper.innerHTML = '';
+
+        collection.ripples.forEach((_, rippleIndex) => {
+          const rippleCard = createRippleCard(
+            collection,
+            rippleIndex,
+            requestDraw,
+            () => {
+              collection.ripples.splice(rippleIndex, 1);
+              updateRipples();
+              requestDraw();
+            }
+          );
+          contentWrapper.appendChild(rippleCard);
+        });
+
+        // + Add Ripple button
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '+ Add Ripple';
+        addBtn.style.width = '100%';
+        addBtn.style.marginTop = '6px';
+        addBtn.style.padding = '4px';
+        addBtn.style.fontSize = '11px';
+        addBtn.style.background = '#2a2a33';
+        addBtn.style.border = '1px solid #555';
+        addBtn.style.color = '#ccc';
+        addBtn.style.borderRadius = '4px';
+        addBtn.style.cursor = 'pointer';
+        addBtn.onclick = () => {
+          if (onAddRipple) onAddRipple();
+        };
+        contentWrapper.appendChild(addBtn);
+      };
+
+      updateRipples();
+      panel.appendChild(contentWrapper);
+
+      // Initial expand state
+      updateColExpandUI();
+
+      return panel;
+    }
+
+    /**
+     * Creates the full card for one ripple (header + waves).
+     * Supports expand/collapse and delete to match original behavior.
+     */
+    function createRippleCard(collection, rippleIndex, requestDraw, onDeleteRipple) {
       const ripple = collection.ripples[rippleIndex];
       const card = document.createElement('div');
       card.className = 'ripple';
 
-      // Header (simplified version of old header for now)
+      // Header
       const header = document.createElement('div');
       header.className = 'ripple-header';
       header.style.display = 'flex';
@@ -700,6 +857,7 @@
       title.style.margin = '0';
       title.style.fontSize = '11px';
       title.style.color = '#aaa';
+      title.style.cursor = 'pointer';
 
       const colorInput = document.createElement('input');
       colorInput.type = 'color';
@@ -709,13 +867,54 @@
         requestDraw();
       };
 
+      const expandBtn = document.createElement('button');
+      expandBtn.className = 'expand-toggle';
+      expandBtn.style.fontSize = '13px';
+      expandBtn.style.padding = '2px 5px';
+      expandBtn.style.background = 'transparent';
+      expandBtn.style.border = 'none';
+      expandBtn.style.color = '#888';
+      expandBtn.style.cursor = 'pointer';
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'delete-btn';
+      delBtn.textContent = '×';
+      delBtn.style.fontSize = '14px';
+      delBtn.style.padding = '2px 6px';
+      delBtn.style.color = '#ff6b6b';
+      delBtn.style.background = 'transparent';
+      delBtn.style.border = 'none';
+      delBtn.style.cursor = 'pointer';
+
+      const updateExpandUI = () => {
+        const isExpanded = ripple.expanded !== false;
+        expandBtn.textContent = isExpanded ? '▼' : '▶';
+        wavesContainer.style.display = isExpanded ? '' : 'none';
+      };
+
+      expandBtn.onclick = () => {
+        ripple.expanded = !(ripple.expanded !== false);
+        updateExpandUI();
+      };
+
+      title.onclick = () => {
+        ripple.expanded = !(ripple.expanded !== false);
+        updateExpandUI();
+      };
+
+      delBtn.onclick = () => {
+        if (onDeleteRipple) onDeleteRipple();
+      };
+
       header.appendChild(checkbox);
       header.appendChild(title);
       header.appendChild(colorInput);
+      header.appendChild(expandBtn);
+      header.appendChild(delBtn);
 
       card.appendChild(header);
 
-      // Waves
+      // Waves container
       const wavesContainer = document.createElement('div');
       wavesContainer.className = 'ripple-controls';
 
@@ -725,6 +924,9 @@
       });
 
       card.appendChild(wavesContainer);
+
+      // Initial state
+      updateExpandUI();
 
       return card;
     }
