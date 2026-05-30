@@ -2016,27 +2016,19 @@
       });
     }
 
+    /**
+     * Public entry point for refreshing the dynamic (per-collection) controls UI.
+     *
+     * In the new architecture (PR 5+), this is a thin delegation to
+     * `mountCollections`, which builds the UI using the component system
+     * (createCollectionPanel → createRippleCard → createWaveEditor).
+     *
+     * All structural mutations (add/delete collection or ripple) should
+     * eventually call this (or mountCollections directly) to refresh the view.
+     */
     function renderAllControls() {
       const container = document.getElementById('ripples-container');
       mountCollections(container, collections, draw);
-    }
-
-    function addNewRippleToCollection(colIndex) {
-      const collection = collections[colIndex];
-      const lastRipple = collection.ripples[collection.ripples.length - 1];
-      const colorIndex = collection.ripples.length % DEFAULT_RIPPLE_COLORS.length;
-      const newRipple = {
-        id: nextRippleId++,
-        name: `Ripple ${collection.ripples.length + 1}`,
-        enabled: true,
-        expanded: true,
-        color: DEFAULT_RIPPLE_COLORS[colorIndex],
-        waves: lastRipple ? lastRipple.waves.map(w => ({ ...w })) : [
-          { frequency: 3, amplitude: 30, rate: 0.4 }
-        ]
-      };
-      collection.ripples.push(newRipple);
-      renderAllControls();
     }
 
     function saveCollection(colIndex) {
