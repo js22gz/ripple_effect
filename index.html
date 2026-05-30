@@ -326,6 +326,11 @@
     let t = 0;
     let lastTime = performance.now();
 
+    // --- Pure helpers used by the visualization ---
+    function amplitudeEnvelope(u) {
+      return Math.pow(Math.sin(u * Math.PI), 1.1);
+    }
+
     // --- Color conversion helpers (used by Colorburst system) ---
 
     /**
