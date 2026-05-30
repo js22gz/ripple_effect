@@ -243,16 +243,18 @@ function createWaveEditor(ripple, waveIndex, requestDraw) {
     }).element
   );
 
+  // Rate uses a visual proxy slider (0-100) mapped to model range 0-1 with power=2.6.
+  // This is what gives good fine control at the very low rates used in the slow-evolution default.
   container.appendChild(
     createSlider({
       label: 'Rate',
       getValue: () => wave.rate,
       setValue: v => { wave.rate = v; },
       visualMin: 0,
-      visualMax: 1,
+      visualMax: 100,
       modelMin: 0,
       modelMax: 1,
-      step: 0.001,
+      step: 0.1,
       power: 2.6,
       precision: 4,
       onChange: () => requestDraw(),
