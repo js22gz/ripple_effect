@@ -290,6 +290,9 @@
         <button id="new-collection-btn" style="flex: 1; padding: 5px; font-size: 11px; background: #2a2a33; border: 1px solid #555; color: #ccc; border-radius: 4px; cursor: pointer;">
           New Collection
         </button>
+        <button id="export-html-btn" style="flex: 1; padding: 5px; font-size: 11px; background: #2a2a33; border: 1px solid #555; color: #ccc; border-radius: 4px; cursor: pointer;" title="Download a self-contained standalone HTML snapshot of the current state">
+          Export .html
+        </button>
       </div>
     </div>
 
@@ -634,6 +637,36 @@
 
     // Active short-lived disturbances (created by pointerdown)
     let disturbances = [];
+
+    // === Live state bridge for copy.js (vanilla standalone exporter) ===
+    // This lets the exporter read the current values of everything at click time.
+    window.__rippler = {
+      get collections() { return collections; },
+      get SHAPE_HEIGHT() { return SHAPE_HEIGHT; },
+      get BASE_WIDTH_TOP() { return BASE_WIDTH_TOP; },
+      get BASE_WIDTH_BOTTOM() { return BASE_WIDTH_BOTTOM; },
+      get CHAOS() { return CHAOS; },
+      get TOP_CAP_HEIGHT() { return TOP_CAP_HEIGHT; },
+      get TOP_CAP_FOCUS() { return TOP_CAP_FOCUS; },
+      get TOP_CAP_STRENGTH() { return TOP_CAP_STRENGTH; },
+      get BOTTOM_CAP_HEIGHT() { return BOTTOM_CAP_HEIGHT; },
+      get BOTTOM_CAP_FOCUS() { return BOTTOM_CAP_FOCUS; },
+      get BOTTOM_CAP_STRENGTH() { return BOTTOM_CAP_STRENGTH; },
+      get COLORBURST_ENABLED() { return COLORBURST_ENABLED; },
+      get COLORBURST_INTENSITY() { return COLORBURST_INTENSITY; },
+      get COLORBURST_SMOOTHNESS() { return COLORBURST_SMOOTHNESS; },
+      get COLORBURST_NON_ADJACENT() { return COLORBURST_NON_ADJACENT; },
+      get COLORBURST_BURST_INTENSITY() { return COLORBURST_BURST_INTENSITY; },
+      get COLORBURST_BLEND_MODE() { return COLORBURST_BLEND_MODE; },
+      get DISTURBANCE_ENABLED() { return DISTURBANCE_ENABLED; },
+      get DISTURBANCE_STRENGTH() { return DISTURBANCE_STRENGTH; },
+      get DISTURBANCE_BASE_LIFETIME() { return DISTURBANCE_BASE_LIFETIME; },
+      get DISTURBANCE_BASE_RADIUS() { return DISTURBANCE_BASE_RADIUS; },
+      // Transient runtime state that can be causing visible movement right now
+      get disturbances() { return disturbances; },
+      get colorburstConnections() { return colorburstConnections; },
+      get t() { return t; },
+    };
 
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1228,6 +1261,31 @@
     }
 
     init();
+
+    // === Engine exposure for exact standalone export (Path A) ===
+    // This allows copy.js to extract the precise live source of the visualization engine.
+    window.__RipplerEngine = {
+      amplitudeEnvelope,
+      spawnDisturbance,
+      getDisturbanceOffset,
+      mixColors,
+      hexToRgb,
+      getMixedBurstColor,
+      rgbToHsl,
+      hslToRgb,
+      segmentsIntersect,
+      findCrossings,
+      getCollectionForRipple,
+      getConnectionKey,
+      resize,
+      draw,
+      drawColorbursts,
+      update,
+      loop,
+    };
   </script>
+
+  <!-- Standalone snapshot exporter (pure vanilla — captures exact live state) -->
+  <script src="copy.js"></script>
 </body>
 </html>

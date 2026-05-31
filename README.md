@@ -29,6 +29,22 @@ Just open `index.html` in any modern browser. That's it.
 
 This loads a rich starting collection with multiple ripples and layered waves.
 
+## Creating standalone snapshots
+
+While the app is running, click **"Export .html"** in the Settings panel (top right).
+
+It instantly captures the *exact current live state* — every slider, every wave parameter, colorbursts, disturbances, everything — and downloads a single, beautiful, completely self-contained `.html` file containing **only** the visualization.
+
+No Node.js, no build step, pure vanilla JavaScript.
+
+You can also trigger it from the browser console:
+
+```js
+downloadRippleSnapshot("My Favorite Setting")
+```
+
+The exported files are perfect for sharing, archiving favorite moments, or using as pure visual pieces. The canvas stays fully interactive (click or touch to create disturbance bursts).
+
 ## Controls overview
 
 - **Left side of the shape** — ripples are distributed evenly across the defined base width
