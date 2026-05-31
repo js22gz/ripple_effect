@@ -331,6 +331,95 @@
       return Math.pow(Math.sin(u * Math.PI), 1.1);
     }
 
+    /**
+     * Spawn a short-lived circular disturbance burst at the given screen position.
+     * Hardness (and the "feel") is determined by vertical position:
+     *   - Lower on screen (higher y) → harder, bassier, stronger, slower ring, slightly longer life.
+     *   - Higher on screen (lower y) → softer, higher-frequency shimmer, lighter, quicker decay.
+     */
+    function spawnDisturbance(clientX, clientY) {
+      if (!DISTURBANCE_ENABLED) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const sx = clientX - rect.left;
+      const sy = clientY - rect.top;
+
+      // Guard: don't spawn when clicking inside the right-side controls panel
+      if (sx > width - 310) return;
+
+      // -1 at top of screen → +1 at bottom of screen
+      const normalizedY = (sy - centerY) / Math.max(80, height * 0.45);
+      const hardness = Math.max(-1, Math.min(1, normalizedY));
+
+      const isHard = hardness > 0.05;
+      const life = DISTURBANCE_BASE_LIFETIME * (isHard ? 1.25 : 0.82);
+      const radius = DISTURBANCE_BASE_RADIUS * (isHard ? 1.15 : 0.88);
+      const strength = (isHard ? 42 : 26) * DISTURBANCE_STRENGTH;
+
+      // Hard = slower, weightier oscillation. Soft = fast light shimmer.
+      const rate = isHard
+        ? (1.05 + Math.random() * 0.55)
+        : (3.4 + Math.random() * 2.1);
+
+      disturbances.push({
+        x: sx,
+        y: sy,
+        radius: radius,
+        strength: strength,
+        hardness: hardness,
+        createdAt: performance.now(),
+        lifetime: life,
+        rate: rate,
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+
+    /**
+     * Compute additional horizontal displacement contributed by all active disturbances
+     * at a given screen point. This is what makes the strands visibly "react" at the click location.
+     */
+    function getDisturbanceOffset(screenX, screenY, now) {
+      if (!DISTURBANCE_ENABLED || disturbances.length === 0) return 0;
+
+      let offset = 0;
+
+      for (let i = 0; i < disturbances.length; i++) {
+        const dist = disturbances[i];
+        const age = (now - dist.createdAt) / 1000;
+        if (age > dist.lifetime) continue;
+
+        const lifeT = age / dist.lifetime;
+        // Smooth decay curve (fast attack, longer tail for hard hits)
+        const decay = Math.pow(1 - lifeT, 1.55);
+
+        const dx = screenX - dist.x;
+        const dy = screenY - dist.y;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        if (r > dist.radius) continue;
+
+        const falloff = 1 - (r / dist.radius);
+        // Smooth radial falloff
+        const smoothFall = falloff * falloff * (3 - 2 * falloff);
+
+        // Richer oscillation for hard hits, quicker for soft
+        const phase = (age * dist.rate + dist.phase) * Math.PI * 2;
+        let osc = Math.sin(phase);
+        if (dist.hardness > 0.2) {
+          // Hard = add a bit of sub-harmonic weight
+          osc = osc * 0.85 + Math.sin(phase * 0.5) * 0.35;
+        } else if (dist.hardness < -0.2) {
+          // Soft = add a little high shimmer
+          osc = osc * 0.7 + Math.sin(phase * 2.3) * 0.45;
+        }
+
+        const hardnessBoost = 0.85 + dist.hardness * 0.55;
+
+        offset += osc * dist.strength * smoothFall * decay * hardnessBoost;
+      }
+
+      return offset;
+    }
+
     // --- Color conversion helpers (used by Colorburst system) ---
 
     /**
@@ -532,8 +621,19 @@
     let COLORBURST_BURST_INTENSITY = 0.7; // dedicated control for the glows at crossing points (0 = off)
     let COLORBURST_BLEND_MODE = 'vibrant'; // 'additive', 'screen', 'vibrant'
 
+    // --- Short-lived click/touch disturbance bursts ---
+    // These create localized, decaying wobbles on the strands.
+    // Hardness (and thus character) is derived from vertical click position.
+    let DISTURBANCE_ENABLED = true;
+    let DISTURBANCE_STRENGTH = 1.0;     // global multiplier
+    let DISTURBANCE_BASE_LIFETIME = 2.0; // seconds (hard clicks live a bit longer)
+    let DISTURBANCE_BASE_RADIUS = 145;   // base influence radius in pixels
+
     // State for the colorburst memory system (fade + reinforcement between ripples)
     const colorburstConnections = new Map();
+
+    // Active short-lived disturbances (created by pointerdown)
+    let disturbances = [];
 
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -625,7 +725,31 @@
           }
 
           const x = rippleX + wave * env;
-          points.push({ x, y });
+
+          // Apply short-lived pointer disturbances (the "bursts" directly push the strands)
+          const nowForDist = performance.now();
+          const disturbanceOffset = DISTURBANCE_ENABLED
+            ? getDisturbanceOffset(x, y, nowForDist)
+            : 0;
+
+          // Extra textural "impact" jitter for hard (low) clicks while they are young
+          let extraImpactJitter = 0;
+          if (DISTURBANCE_ENABLED && disturbances.length > 0) {
+            for (let d = 0; d < disturbances.length; d++) {
+              const dist = disturbances[d];
+              const age = (nowForDist - dist.createdAt) / 1000;
+              if (age > 0.7 || dist.hardness < 0.15) continue; // only recent hard hits
+              const dx = x - dist.x;
+              const dy = y - dist.y;
+              const r = Math.sqrt(dx * dx + dy * dy);
+              if (r < dist.radius * 0.92) {
+                const impact = (1 - age / 0.7) * (1 - r / (dist.radius * 0.92)) * 0.6;
+                extraImpactJitter += (Math.random() - 0.5) * impact * 11 * DISTURBANCE_STRENGTH;
+              }
+            }
+          }
+
+          points.push({ x: x + disturbanceOffset + extraImpactJitter, y });
         }
         allRipplePoints.push({ points, ripple });
       });
@@ -732,6 +856,42 @@
       ctx.stroke();
 
       ctx.restore();
+
+      // === Subtle visual markers for active disturbance bursts ===
+      // Very restrained so the main feedback remains the reacting strands themselves.
+      if (DISTURBANCE_ENABLED && disturbances.length > 0) {
+        const now = performance.now();
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < disturbances.length; i++) {
+          const d = disturbances[i];
+          const age = (now - d.createdAt) / 1000;
+          if (age > d.lifetime) continue;
+
+          const lifeT = age / d.lifetime;
+          const alpha = (1 - lifeT) * 0.12 * (0.6 + d.hardness * 0.3);
+          if (alpha < 0.015) continue;
+
+          const expand = 1 + lifeT * 0.35;
+          const r = d.radius * expand * 0.55;
+
+          // Soft colored ring that matches the "hard vs soft" character
+          const hueShift = d.hardness > 0 ? 220 : 280; // cooler for hard, warmer/pinkish for soft
+          ctx.strokeStyle = `hsla(${hueShift}, 65%, 72%, ${alpha})`;
+          ctx.lineWidth = d.hardness > 0.2 ? 2.2 : 1.4;
+
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Tiny bright center dot for the exact click point
+          ctx.fillStyle = `hsla(${hueShift}, 80%, 85%, ${alpha * 1.8})`;
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
 
       // === Colorbursts: connectivity areas between intersecting ripples ===
       drawColorbursts(allRipplePoints, topY, bottomY);
@@ -1013,6 +1173,18 @@
       lastTime = now;
 
       t += dt * 0.9;   // overall animation speed
+
+      // Prune expired short-lived disturbances
+      if (disturbances.length > 0) {
+        const stillAlive = [];
+        for (let i = 0; i < disturbances.length; i++) {
+          const d = disturbances[i];
+          if ((now - d.createdAt) / 1000 <= d.lifetime) {
+            stillAlive.push(d);
+          }
+        }
+        disturbances = stillAlive;
+      }
     }
 
     function loop() {
@@ -1024,6 +1196,11 @@
     function init() {
       resize();
       window.addEventListener('resize', resize, { passive: true });
+
+      // Pointer (mouse + touch) disturbances — short-lived bursts that push the strands locally
+      canvas.addEventListener('pointerdown', (e) => {
+        spawnDisturbance(e.clientX, e.clientY);
+      }, { passive: true });
 
       // Mount the new globals panel (component-based)
       try {

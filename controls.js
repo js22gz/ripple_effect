@@ -756,6 +756,51 @@ function createGlobalsPanel(requestDraw) {
 
   root.appendChild(cbGroup);
 
+  // Disturbance bursts (short-lived pointer clicks that locally push the strands)
+  const distGroup = createGroup('Disturbances');
+
+  distGroup.appendChild(createCheckbox({
+    label: 'Enable Click Bursts',
+    getValue: () => DISTURBANCE_ENABLED,
+    setValue: v => {
+      DISTURBANCE_ENABLED = v;
+      if (!v) disturbances.length = 0; // clear any active bursts immediately
+    },
+    onChange: () => requestDraw(),
+  }).element);
+
+  distGroup.appendChild(createSlider({
+    label: 'Strength',
+    getValue: () => DISTURBANCE_STRENGTH,
+    setValue: v => { DISTURBANCE_STRENGTH = v; },
+    visualMin: 0, visualMax: 3.0,
+    modelMin: 0, modelMax: 3.0,
+    step: 0.05, power: 1, precision: 2,
+    onChange: () => requestDraw(),
+  }).element);
+
+  distGroup.appendChild(createSlider({
+    label: 'Duration (s)',
+    getValue: () => DISTURBANCE_BASE_LIFETIME,
+    setValue: v => { DISTURBANCE_BASE_LIFETIME = v; },
+    visualMin: 0.4, visualMax: 4.0,
+    modelMin: 0.4, modelMax: 4.0,
+    step: 0.05, power: 1, precision: 2,
+    onChange: () => requestDraw(),
+  }).element);
+
+  distGroup.appendChild(createSlider({
+    label: 'Radius',
+    getValue: () => DISTURBANCE_BASE_RADIUS,
+    setValue: v => { DISTURBANCE_BASE_RADIUS = v; },
+    visualMin: 40, visualMax: 320,
+    modelMin: 40, modelMax: 320,
+    step: 2, power: 1, precision: 0,
+    onChange: () => requestDraw(),
+  }).element);
+
+  root.appendChild(distGroup);
+
   return root;
 }
 
